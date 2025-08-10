@@ -121,17 +121,6 @@ struct Versions {
     timezone: String,
     csesp: String,
 }
-/* #[derive(Deserialize)]
-struct UserCheckResponse {
-    #[serde(rename = "resultCode")]
-    result_code: String,
-} */
-
-
-
-
-
-
 
 impl GrenadeSettingsTarget {
     pub fn ui_token(&self) -> Cow<'static, str> {
@@ -465,191 +454,35 @@ impl SettingsUI {
 
     pub fn render_main_ui(
         &mut self,
-        app: &Application,
+        _app: &Application,
         ui: &imgui::Ui,
-        unicode_text: &UnicodeTextRenderer,
+        _unicode_text: &UnicodeTextRenderer,
     ) {
-        let content_font = ui.current_font().id();
-        let _title_font = if let Some(font_id) = app.fonts.valthrun.font_id() {
-            ui.push_font(font_id)
-        } else {
-            return;
-        };
+        let display_size = ui.io().display_size;
+        let window_size = [400.0, 120.0];
+        let window_pos = [(display_size[0] - window_size[0]) * 0.5, (display_size[1] - window_size[1]) * 0.5];
 
-        ui.window(obfstr!("Yeageth"))
-            .size([650.0, 300.0], Condition::FirstUseEver)
-            .size_constraints([650.0, 300.0], [2000.0, 2000.0])
-            .title_bar(false)
+        ui.window("Welcome")
+            .position(window_pos, Condition::Always)
+            .size(window_size, Condition::FirstUseEver)
+            .resizable(false)
+            .collapsible(false)
             .build(|| {
-                {
-                    for (text, color) in [
-                        ("Y", [0.81, 0.69, 0.06, 1.0]),
-                        ("e", [0.84, 0.61, 0.15, 1.0]),
-                        ("a", [0.86, 0.52, 0.24, 1.0]),
-                        ("g", [0.89, 0.44, 0.33, 1.0]),
-                        ("e", [0.92, 0.36, 0.41, 1.0]),
-                        ("t", [0.95, 0.27, 0.50, 1.0]),
-                        ("h", [0.97, 0.19, 0.59, 1.0]),
-                    ] {
-                        ui.text_colored(color, text);
-                        ui.same_line();
-                    }
+                ui.dummy([0.0, 10.0]);
 
-                    ui.new_line();
-                    ui.dummy([0.0, 5.0]);
-                }
+                let welcome_text = format!("Welcome, {}!", self.login_state.username);
 
-                let _content_font = ui.push_font(content_font);
-                let mut settings = app.settings_mut();
+                let text_width = ui.calc_text_size(&welcome_text)[0];
+                let window_width = ui.window_size()[0];
+                let new_cursor_x = (window_width - text_width) * 0.5;
 
-                if let Some(_tab_bar) = ui.tab_bar("main") {
-                    if let Some(_tab) = ui.tab_item("Information") {
-                        let build_info = app.app_state.resolve::<StateBuildInfo>(()).ok();
+                // Mevcut Y pozisyonunu al
+                let current_cursor_y = ui.cursor_pos()[1];
 
-                        ui.text(obfstr!("Valthrun an open source CS2 external read only kernel gameplay enhancer."));
-                        ui.text(&format!("{} Version {} ({})", obfstr!("Valthrun"), VERSION, env!("BUILD_TIME")));
-                        ui.text(&format!("{} Version {} ({})", obfstr!("CS2"), build_info.as_ref().map_or("error", |info| &info.revision), build_info.as_ref().map_or("error", |info| &info.build_datetime)));
+                // Yeni X ve mevcut Y ile tam cursor pozisyonunu ayarla
+                ui.set_cursor_pos([new_cursor_x, current_cursor_y]);
 
-                        let ydummy = ui.window_size()[1] - ui.cursor_pos()[1] - ui.text_line_height_with_spacing() * 2.0 - 12.0;
-                        ui.dummy([0.0, ydummy]);
-                        ui.separator();
-
-                        ui.text(obfstr!("Join our discord:"));
-                        ui.text_colored([0.18, 0.51, 0.97, 1.0], obfstr!("https://discord.gg/ecKbpAPW5T"));
-                        if ui.is_item_hovered() {
-                            ui.set_mouse_cursor(Some(imgui::MouseCursor::Hand));
-                        }
-
-                        if ui.is_item_clicked() {
-                            self.discord_link_copied = Some(Instant::now());
-                            ui.set_clipboard_text(obfstr!("https://discord.gg/ecKbpAPW5T"));
-                        }
-
-                        let show_copied = self.discord_link_copied.as_ref()
-                            .map(|time| time.elapsed().as_millis() < 3_000)
-                            .unwrap_or(false);
-
-                        if show_copied {
-                            ui.same_line();
-                            ui.text("(Copied)");
-                        }
-                    }
-
-                    if let Some(_) = ui.tab_item("Hotkeys") {
-                        ui.button_key(obfstr!("Toggle Settings"), &mut settings.key_settings, [150.0, 0.0]);
-
-                        {
-                            let _enabled = ui.begin_enabled(matches!(settings.esp_mode, KeyToggleMode::Toggle | KeyToggleMode::Trigger));
-                            ui.button_key_optional(obfstr!("ESP toggle/trigger"), &mut settings.esp_toogle, [150.0, 0.0]);
-                        }
-                    }
-
-                    if let Some(_tab) = ui.tab_item(obfstr!("Visuals")) {
-                        ui.set_next_item_width(150.0);
-                        ui.combo_enum(obfstr!("ESP"), &[
-                            (KeyToggleMode::Off, "Always Off"),
-                            (KeyToggleMode::Trigger, "Trigger"),
-                            (KeyToggleMode::TriggerInverted, "Trigger Inverted"),
-                            (KeyToggleMode::Toggle, "Toggle"),
-                            (KeyToggleMode::AlwaysOn, "Always On"),
-                        ], &mut settings.esp_mode);
-
-                        ui.checkbox(obfstr!("Bomb Timer"), &mut settings.bomb_timer);
-                        ui.checkbox(obfstr!("Spectators List"), &mut settings.spectators_list);
-                        ui.checkbox(obfstr!("Grenade Helper"), &mut settings.grenade_helper.active);
-                        ui.checkbox(obfstr!("Sniper Crosshair"), &mut settings.sniper_crosshair);
-                    }
-
-                    if let Some(_tab) = ui.tab_item(obfstr!("ESP")) {
-                        if settings.esp_mode == KeyToggleMode::Off {
-                            let _style = ui.push_style_color(StyleColor::Text, [1.0, 0.76, 0.03, 1.0]);
-                            ui.text(obfstr!("ESP has been disabled."));
-                            ui.text(obfstr!("Please enable ESP under \"Visuals\" > \"ESP\""));
-                        } else {
-                            self.render_esp_settings(&mut *settings, ui);
-                        }
-                    }
-
-                    if let Some(_tab) = ui.tab_item(obfstr!("Grenade Helper")) {
-                        if settings.grenade_helper.active {
-                            self.render_grenade_helper(&app.app_state, &mut settings.grenade_helper, ui, unicode_text);
-                        } else {
-                            let _style = ui.push_style_color(StyleColor::Text, [1.0, 0.76, 0.03, 1.0]);
-                            ui.text(obfstr!("Grenade Helper has been disabled."));
-                            ui.text(obfstr!("Please enable the grenade helper under \"Visuals\" > \"Grenade Helper\""));
-                        }
-
-                        self.render_grenade_helper_transfer(&mut settings.grenade_helper, ui);
-                    }
-
-                    if let Some(_) = ui.tab_item(obfstr!("Aim Assist")) {
-                        ui.set_next_item_width(150.0);
-                        ui.combo_enum(obfstr!("Trigger Bot"), &[
-                            (KeyToggleMode::Off, "Always Off"),
-                            (KeyToggleMode::Trigger, "Trigger"),
-                            (KeyToggleMode::TriggerInverted, "Trigger Inverted"),
-                            (KeyToggleMode::Toggle, "Toggle"),
-                            (KeyToggleMode::AlwaysOn, "Always On"),
-                        ], &mut settings.trigger_bot_mode);
-
-                        if !matches!(settings.trigger_bot_mode, KeyToggleMode::Off | KeyToggleMode::AlwaysOn) {
-                            ui.button_key_optional(obfstr!("Trigger bot key"), &mut settings.key_trigger_bot, [150.0, 0.0]);
-                        }
-                        if !matches!(settings.trigger_bot_mode, KeyToggleMode::Off) {
-                            let mut values_updated = false;
-                            let slider_width = (ui.current_column_width() / 2.0 - 80.0).min(300.0).max(50.0);
-                            let slider_width_1 = (ui.current_column_width() / 2.0 - 20.0).min(300.0).max(50.0);
-
-                            ui.text(obfstr!("Trigger delay min: "));
-                            ui.same_line();
-                            ui.set_next_item_width(slider_width);
-                            values_updated |= ui.slider_config("##delay_min", 0, 300).display_format("%dms").build(&mut settings.trigger_bot_delay_min);
-                            ui.same_line();
-
-                            ui.text(" max: ");
-                            ui.same_line();
-                            ui.set_next_item_width(slider_width);
-                            values_updated |= ui.slider_config("##delay_max", 0, 300).display_format("%dms").build(&mut settings.trigger_bot_delay_max);
-
-                            ui.text(obfstr!("Shoot duration: "));
-                            ui.same_line();
-                            ui.set_next_item_width(slider_width_1);
-                            values_updated |= ui.slider_config("##shoot_duration", 0, 1000).display_format("%dms").build(&mut settings.trigger_bot_shot_duration);
-
-                            if values_updated {
-                                /* fixup min/max */
-                                let delay_min = settings.trigger_bot_delay_min.min(settings.trigger_bot_delay_max);
-                                let delay_max = settings.trigger_bot_delay_min.max(settings.trigger_bot_delay_max);
-
-                                settings.trigger_bot_delay_min = delay_min;
-                                settings.trigger_bot_delay_max = delay_max;
-                            }
-
-                            ui.checkbox(obfstr!("Retest trigger target after delay"), &mut settings.trigger_bot_check_target_after_delay);
-                            ui.checkbox(obfstr!("Team Check"), &mut settings.trigger_bot_team_check);
-                            ui.separator();
-                        }
-
-                        ui.checkbox("Simple Recoil Helper", &mut settings.aim_assist_recoil);
-                    }
-
-                    if let Some(_) = ui.tab_item("Web Radar") {
-                        ui.text(obfstr!("Operating the Valthrun Web Radar within the Valthrun Overlay is no longer supported."));
-                        ui.text(obfstr!("Please use the standalone radar client."));
-                    }
-
-                    if let Some(_) = ui.tab_item("Misc") {
-                        ui.checkbox(obfstr!("Valthrun Watermark"), &mut settings.valthrun_watermark);
-
-                        if ui.checkbox(obfstr!("Hide overlay from screen capture"), &mut settings.hide_overlay_from_screen_capture) {
-                            app.settings_screen_capture_changed.store(true, Ordering::Relaxed);
-                        }
-
-                        if ui.checkbox(obfstr!("Show render debug overlay"), &mut settings.render_debug_window) {
-                            app.settings_render_debug_window_changed.store(true, Ordering::Relaxed);
-                        }
-                    }
-                }
+                ui.text(welcome_text);
             });
     }
 

@@ -489,6 +489,10 @@ impl SystemRuntimeController {
     }
 
     pub fn toggle_screen_capture_visibility(&self, should_be_visible: bool) {
+        println!(
+            "Setting screen capture visibility to {}",
+            should_be_visible
+        );
         unsafe {
             let (target_state, state_name) = if should_be_visible {
                 (WDA_NONE, "normal")

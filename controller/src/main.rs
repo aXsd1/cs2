@@ -1,3 +1,4 @@
+// fileName: main.rs
 use std::{
     cell::{
         Ref,
@@ -53,7 +54,6 @@ use overlay::{
     VulkanError,
 };
 use settings::{
-    load_app_settings,
     AppSettings,
     SettingsUI,
 };
@@ -72,7 +72,6 @@ use crate::{
         SpectatorsListIndicator,
         TriggerBot,
     },
-    settings::save_app_settings,
     utils::TextWithShadowUi,
     winver::version_info,
 };
@@ -188,10 +187,9 @@ impl Application {
             let mut imgui_settings = String::new();
             controller.imgui.save_ini_settings(&mut imgui_settings);
             settings.imgui = Some(imgui_settings);
-
-            if let Err(error) = save_app_settings(&*settings) {
-                log::warn!("Failed to save user settings: {}", error);
-            };
+            
+            // Yerel dosyaya kaydetme işlemi kaldırıldı.
+            log::debug!("Settings updated in memory. Local saving is disabled.");
         }
 
         if self
@@ -394,8 +392,10 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         log::warn!("{}", obfstr!("Running the controller as administrator might cause failures with your graphic drivers."));
     }
 
-    // İlk yükleme (mevcut kodla aynı)
-    let settings = load_app_settings()?;
+    // Dosyadan ayar yükleme kaldırıldı. Bunun yerine varsayılan ayarlar oluşturuluyor.
+    log::info!("Initializing with default settings. Remote settings will be fetched in the background.");
+    let settings: AppSettings = serde_yaml::from_str("").context("Failed to create default settings")?;
+
     let cs2 = match CS2Handle::create(settings.metrics) {
         Ok(handle) => handle,
         Err(err) => {
@@ -667,6 +667,12 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
                         // mark dirty so pre_update will persist / apply any derived changes
                         app.settings_dirty = true;
                         log::info!("Applied remote settings to app_state.");
+                    
+                        // YENİ EKLENEN KISIM:
+                        // Uzaktan gelen ayarların pre_update'te işlenmesi için
+                        // değişiklik bayraklarını manuel olarak tetikle.
+                        app.settings_screen_capture_changed.store(true, Ordering::Relaxed);
+                        app.settings_render_debug_window_changed.store(true, Ordering::Relaxed);
                     }
                 }
                 Err(mpsc::TryRecvError::Empty) => {

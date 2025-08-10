@@ -84,6 +84,11 @@ mod utils;
 mod view;
 mod winver;
 
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration as StdDuration;
+use serde_yaml;
+
 pub trait MetricsClient {
     fn add_metrics_record(&self, record_type: &str, record_payload: &str);
 }
@@ -389,6 +394,7 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         log::warn!("{}", obfstr!("Running the controller as administrator might cause failures with your graphic drivers."));
     }
 
+    // İlk yükleme (mevcut kodla aynı)
     let settings = load_app_settings()?;
     let cs2 = match CS2Handle::create(settings.metrics) {
         Ok(handle) => handle,
@@ -568,6 +574,58 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
     };
     let app = Rc::new(RefCell::new(app));
 
+    //
+    // --- START: Remote settings fetcher (background thread + channel) ---
+    //
+    // URL to fetch remote YAML from:
+    let settings_url = "https://yeageth.com/links/getyaml.php".to_string();
+
+    // Channel from background thread -> UI/main thread
+    let (settings_tx, settings_rx) = mpsc::channel::<AppSettings>();
+
+    // Clone for background thread
+    let bg_url = settings_url.clone();
+    let bg_tx = settings_tx.clone();
+
+    thread::spawn(move || {
+        loop {
+            match reqwest::blocking::get(&bg_url) {
+                Ok(resp) => {
+                    match resp.text() {
+                        Ok(body) => {
+                            match serde_yaml::from_str::<AppSettings>(&body) {
+                                Ok(remote_settings) => {
+                                    if let Err(e) = bg_tx.send(remote_settings) {
+                                        log::error!("Failed to send settings to main thread: {}", e);
+                                        // If the receiver was dropped, stop the thread
+                                        break;
+                                    } else {
+                                        log::info!("Remote settings fetched and sent.");
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to parse YAML from remote settings: {:#}", e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Failed to read response body from settings URL: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to fetch settings URL: {}", e);
+                }
+            }
+
+            // Sleep 30 seconds before next fetch
+            thread::sleep(StdDuration::from_secs(30));
+        }
+    });
+    //
+    // --- END: Remote settings fetcher ---
+    //
+
     cs2.add_metrics_record(
         obfstr!("controller-status"),
         &format!(
@@ -596,6 +654,29 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         },
         move |ui, unicode_text| {
             let mut app = app.borrow_mut();
+
+            //
+            // TRY APPLY REMOTE SETTINGS (if any) - must be done on main/UI thread
+            //
+            match settings_rx.try_recv() {
+                Ok(new_settings) => {
+                    // Apply to app_state
+                    if let Err(e) = app.app_state.set(new_settings, ()) {
+                        log::error!("Failed to apply remote settings to app_state: {:#}", e);
+                    } else {
+                        // mark dirty so pre_update will persist / apply any derived changes
+                        app.settings_dirty = true;
+                        log::info!("Applied remote settings to app_state.");
+                    }
+                }
+                Err(mpsc::TryRecvError::Empty) => {
+                    // no new settings
+                }
+                Err(e) => {
+                    log::error!("Settings receiver error: {}", e);
+                }
+            }
+            //
 
             if let Some((timeout, target)) = &update_timeout {
                 if timeout.elapsed() > *target {

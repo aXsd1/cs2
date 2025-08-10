@@ -20,6 +20,10 @@ use std::{
 };
 
 use anyhow::Context;
+use chrono::{
+    Datelike,
+    Utc};
+use chrono_tz::Tz;
 use cs2::{
     StateBuildInfo,
     StateCurrentMap,
@@ -37,6 +41,7 @@ use imgui::{
 };
 use obfstr::obfstr;
 use overlay::UnicodeTextRenderer;
+use serde::Deserialize;
 use utils_state::StateRegistry;
 
 use super::{
@@ -82,6 +87,51 @@ enum GrenadeSettingsTarget {
         display_name: String,
     },
 }
+
+
+
+// Add these with your other enums
+enum UiState {
+    Login,
+    LoggedIn,
+}
+
+// Login işleminin durumunu yönetir
+enum LoginStatus {
+    Idle,
+    InProgress,
+    Failed(String),
+}
+
+// Login ekranı için gerekli tüm verileri tutar
+struct LoginState {
+    username: String,
+    password: String,
+    status: LoginStatus,
+    result_handle: Arc<Mutex<Option<Result<String, String>>>>,
+}
+
+// Sunucudan gelen JSON yanıtları için struct'lar
+#[derive(Deserialize)]
+struct VersionsResponse {
+    versions: Versions,
+}
+#[derive(Deserialize)]
+struct Versions {
+    timezone: String,
+    csesp: String,
+}
+/* #[derive(Deserialize)]
+struct UserCheckResponse {
+    #[serde(rename = "resultCode")]
+    result_code: String,
+} */
+
+
+
+
+
+
 
 impl GrenadeSettingsTarget {
     pub fn ui_token(&self) -> Cow<'static, str> {
@@ -139,6 +189,9 @@ enum GrenadeHelperTransferState {
 }
 
 pub struct SettingsUI {
+    ui_state: UiState,
+    login_state: LoginState,
+
     discord_link_copied: Option<Instant>,
 
     esp_selected_target: EspSelector,
@@ -155,10 +208,171 @@ pub struct SettingsUI {
     grenade_helper_pending_selected_id: Option<usize>,
 }
 
+// =================================================================
+// YARDIMCI FONKSİYONLAR (HWID & LOGIN MANTIĞI)
+// =================================================================
+
+/// Sadece Windows üzerinde derlenir ve klasör sahibinin SID'sini HWID olarak alır.
+#[cfg(windows)]
+fn get_hwid() -> Result<String, String> {
+    use std::{ffi::c_void, ptr};
+    use windows_sys::Win32::{
+        Foundation::{LocalFree, PSID},
+        Security::GetFileSecurityW,
+        Security::GetSecurityDescriptorOwner,
+        Security::OWNER_SECURITY_INFORMATION,
+        Security::Authorization::ConvertSidToStringSidW, // 🔧 Doğru modül!
+    };
+    use widestring::U16CStr; // 🔧 U16Str değil, U16CStr
+
+    unsafe {
+        let path: Vec<u16> = ".".encode_utf16().chain(std::iter::once(0)).collect();
+        let mut bytes_needed = 0;
+
+        GetFileSecurityW(
+            path.as_ptr(),
+            OWNER_SECURITY_INFORMATION,
+            ptr::null_mut(),
+            0,
+            &mut bytes_needed,
+        );
+
+        if bytes_needed == 0 {
+            return Err("HWID Error: Could not get required buffer size.".to_string());
+        }
+
+        let layout = std::alloc::Layout::from_size_align(bytes_needed as usize, 1).unwrap();
+        let p_security_descriptor = std::alloc::alloc(layout) as *mut c_void;
+
+        if GetFileSecurityW(
+            path.as_ptr(),
+            OWNER_SECURITY_INFORMATION,
+            p_security_descriptor,
+            bytes_needed,
+            &mut bytes_needed,
+        ) == 0
+        {
+            std::alloc::dealloc(p_security_descriptor as *mut u8, layout);
+            return Err("HWID Error: GetFileSecurityW failed.".to_string());
+        }
+
+        let mut p_sid_owner: PSID = ptr::null_mut();
+        let mut p_defaulted: i32 = 0;
+        if GetSecurityDescriptorOwner(
+            p_security_descriptor,
+            &mut p_sid_owner,
+            &mut p_defaulted,
+        ) == 0
+        {
+            std::alloc::dealloc(p_security_descriptor as *mut u8, layout);
+            return Err("HWID Error: GetSecurityDescriptorOwner failed.".to_string());
+        }
+
+        let mut sid_string_ptr: *mut u16 = ptr::null_mut();
+        if ConvertSidToStringSidW(p_sid_owner, &mut sid_string_ptr) == 0 {
+            std::alloc::dealloc(p_security_descriptor as *mut u8, layout);
+            return Err("HWID Error: ConvertSidToStringSidW failed.".to_string());
+        }
+
+        // 🔧 DÜZELTME: U16CStr::from_ptr_str kullanılıyor
+        let sid_string = U16CStr::from_ptr_str(sid_string_ptr)
+            .to_string_lossy();
+
+        LocalFree(sid_string_ptr as *mut c_void);
+        std::alloc::dealloc(p_security_descriptor as *mut u8, layout);
+
+        Ok(sid_string)
+    }
+}
+
+
+/// Windows dışı platformlar için yedek HWID fonksiyonu.
+#[cfg(not(windows))]
+fn get_hwid() -> Result<String, String> {
+    Ok("non-windows-hwid".to_string())
+}
+
+
+/// Tüm karmaşık login mantığını yürüten ana fonksiyon.
+fn perform_full_login_check(username: &str, password: &str) -> Result<String, String> {
+
+    const PROGRAM_CSESP_VERSION: &str = "1";
+
+    let client = reqwest::blocking::Client::new();
+
+    // =================================================================
+    // ADIM 2: SUNUCUDAN BİLGİLERİ AL
+    // =================================================================
+    let version_info: VersionsResponse = client.get("https://yeageth.com/versions.php")
+        .send().map_err(|e| format!("Network Error: {}", e))?
+        .json().map_err(|e| format!("Data Error: {}", e))?;
+    
+    // Sunucudan gelen versiyon bilgilerini kontrol et
+    if version_info.versions.csesp != PROGRAM_CSESP_VERSION {
+        // Eğer versiyonlar uyuşmuyorsa, işlemi hemen bitir ve hata döndür.
+        return Err("Uygulama sürümü güncel değil. Lütfen güncelleyin.".to_string());
+    }
+
+    // =================================================================
+    // ADIM 4: YEREL DOĞRULAMA KODUNU HESAPLA
+    // =================================================================
+    let timezone: Tz = version_info.versions.timezone.parse()
+        .map_err(|_| "Invalid timezone from server".to_string())?;
+
+    let now = Utc::now().with_timezone(&timezone);
+    let local_code: String = (now.year() as u32 * 365 + now.month() * 30 + now.day())
+        .saturating_mul(1344)
+        .to_string()
+        .chars()
+        .map(|c| if c.to_digit(10).unwrap_or(0) % 2 == 0 { '0' } else { '1' })
+        .collect();
+
+    // =================================================================
+    // ADIM 5: DİĞER KONTROLLER (HWID VE LOGIN)
+    // =================================================================
+    let hwid = get_hwid()?;
+
+    let params = [("username", username), ("password", password), ("hwid", &hwid)];
+    let response = client.post("https://yeageth.com/usercheck_csesp.php")
+        .form(&params)
+        .send().map_err(|e| format!("Login request failed: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("Server returned error: {}", response.status()));
+    }
+    
+    let data: String = response
+        .text()
+        .map_err(|_| "Invalid response from server".to_string())?;
+    
+        println!("Server response: {:?}", data);
+    
+    if data == local_code {
+        Ok("Login Successful!".to_string())
+    } else {
+        Err(match data.as_str() {
+            "1" => "Subscription ended".to_string(),
+            "2" => "You don't have access to this product".to_string(),
+            "3" => "HWID didn't match".to_string(),
+            "4" => "User not found".to_string(),
+            "5" => "Wrong password".to_string(),
+            _   => "Login failed: Unknown error".to_string(),
+        })
+    }
+}
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 impl SettingsUI {
     pub fn new() -> Self {
         Self {
+            ui_state: UiState::Login,
+            login_state: LoginState {
+                username: String::with_capacity(64),
+                password: String::with_capacity(64),
+                status: LoginStatus::Idle,
+                result_handle: Arc::new(Mutex::new(None)),
+            },
+            
             discord_link_copied: None,
 
             esp_selected_target: EspSelector::None,
@@ -182,6 +396,79 @@ impl SettingsUI {
         ui: &imgui::Ui,
         unicode_text: &UnicodeTextRenderer,
     ) {
+        match self.ui_state {
+            UiState::Login => self.render_login_screen(ui),
+            UiState::LoggedIn => self.render_main_ui(app, ui, unicode_text),
+        }
+    }
+
+    /// Login ekranını çizen fonksiyon.
+    fn render_login_screen(&mut self, ui: &imgui::Ui) {
+        let display_size = ui.io().display_size;
+        let window_size = [400.0, 220.0];
+        let window_pos = [(display_size[0] - window_size[0]) * 0.5, (display_size[1] - window_size[1]) * 0.5];
+
+        ui.window(obfstr!("Login"))
+            .position(window_pos, Condition::Always)
+            .size(window_size, Condition::Always)
+            .resizable(false).collapsible(false).title_bar(true)
+            .build(|| {
+                ui.text_wrapped("Please log in to continue.");
+                ui.separator();
+                ui.dummy([0.0, 10.0]);
+
+                let is_in_progress = matches!(self.login_state.status, LoginStatus::InProgress);
+                let _disable = ui.begin_disabled(is_in_progress);
+
+                ui.set_next_item_width(-1.0); // Tam genişlik
+                ui.input_text(obfstr!("Username"), &mut self.login_state.username).build();
+
+                ui.set_next_item_width(-1.0); // Tam genişlik
+                ui.input_text(obfstr!("Password"), &mut self.login_state.password).password(true).build();
+
+                ui.dummy([0.0, 10.0]);
+
+                if ui.button_with_size(obfstr!("Login"), [-1.0, 30.0]) {
+                    self.login_state.status = LoginStatus::InProgress;
+                    let username = self.login_state.username.clone();
+                    let password = self.login_state.password.clone();
+                    let result_handle = self.login_state.result_handle.clone();
+
+                    // Arka planda login işlemini yürüt
+                    thread::spawn(move || {
+                        let outcome = perform_full_login_check(&username, &password);
+                        *result_handle.lock().unwrap() = Some(outcome);
+                    });
+                }
+                
+                drop(_disable);
+
+                // Arka plandan gelen sonucu kontrol et
+                if let Ok(mut result_lock) = self.login_state.result_handle.try_lock() {
+                    if let Some(result) = result_lock.take() {
+                        match result {
+                            Ok(_) => self.ui_state = UiState::LoggedIn,
+                            Err(e) => self.login_state.status = LoginStatus::Failed(e),
+                        }
+                    }
+                }
+                
+                // Durum mesajlarını göster
+                match &self.login_state.status {
+                    LoginStatus::InProgress => ui.text_colored([1.0, 0.76, 0.03, 1.0], "Logging in..."),
+                    LoginStatus::Failed(message) => ui.text_colored([1.0, 0.0, 0.0, 1.0], message),
+                    LoginStatus::Idle => {},
+                }
+            });
+    }
+
+
+    pub fn render_main_ui(
+        &mut self,
+        app: &Application,
+        ui: &imgui::Ui,
+        unicode_text: &UnicodeTextRenderer,
+    ) {
         let content_font = ui.current_font().id();
         let _title_font = if let Some(font_id) = app.fonts.valthrun.font_id() {
             ui.push_font(font_id)
@@ -189,21 +476,20 @@ impl SettingsUI {
             return;
         };
 
-        ui.window(obfstr!("Valthrun"))
+        ui.window(obfstr!("Yeageth"))
             .size([650.0, 300.0], Condition::FirstUseEver)
             .size_constraints([650.0, 300.0], [2000.0, 2000.0])
             .title_bar(false)
             .build(|| {
                 {
                     for (text, color) in [
-                        ("V", [0.81, 0.69, 0.06, 1.0]),
-                        ("a", [0.84, 0.61, 0.15, 1.0]),
-                        ("l", [0.86, 0.52, 0.24, 1.0]),
-                        ("t", [0.89, 0.44, 0.33, 1.0]),
-                        ("h", [0.92, 0.36, 0.41, 1.0]),
-                        ("r", [0.95, 0.27, 0.50, 1.0]),
-                        ("u", [0.97, 0.19, 0.59, 1.0]),
-                        ("n", [1.00, 0.11, 0.68, 1.0]),
+                        ("Y", [0.81, 0.69, 0.06, 1.0]),
+                        ("e", [0.84, 0.61, 0.15, 1.0]),
+                        ("a", [0.86, 0.52, 0.24, 1.0]),
+                        ("g", [0.89, 0.44, 0.33, 1.0]),
+                        ("e", [0.92, 0.36, 0.41, 1.0]),
+                        ("t", [0.95, 0.27, 0.50, 1.0]),
+                        ("h", [0.97, 0.19, 0.59, 1.0]),
                     ] {
                         ui.text_colored(color, text);
                         ui.same_line();

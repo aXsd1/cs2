@@ -27,6 +27,8 @@ use utils_state::{
     StateCacheType,
 };
 
+use serde_json;
+
 use super::{
     Color,
     EspConfig,
@@ -351,3 +353,64 @@ pub fn save_app_settings(settings: &AppSettings) -> anyhow::Result<()> {
     log::debug!("Saved app config.");
     Ok(())
 }
+
+/* pub fn get_settings_path() -> anyhow::Result<PathBuf> {
+    let mut path = std::env::current_exe()
+        .context("failed to get current executable path")?;
+    path.pop(); // Remove the executable name
+    path.push("config.json");
+    Ok(path)
+}
+
+pub fn load_app_settings() -> anyhow::Result<AppSettings> {
+    let config_path = get_settings_path()?;
+    if !config_path.is_file() {
+        log::info!(
+            "App config file {} does not exist.",
+            config_path.to_string_lossy()
+        );
+        log::info!("Using default config.");
+        let config: AppSettings =
+            // Use serde_json::from_str for an empty default
+            serde_json::from_str("{}").context("failed to parse empty config")?; // <--- Changed
+        return Ok(config);
+    }
+
+    let config = File::open(&config_path).with_context(|| {
+        format!(
+            "failed to open app config at {}",
+            config_path.to_string_lossy()
+        )
+    })?;
+    let mut config = BufReader::new(config);
+
+    let config: AppSettings =
+        // Use serde_json::from_reader
+        serde_json::from_reader(&mut config).context("failed to parse app config")?; // <--- Changed
+
+    log::info!("Loaded app config from {}", config_path.to_string_lossy());
+    Ok(config)
+}
+
+pub fn save_app_settings(settings: &AppSettings) -> anyhow::Result<()> {
+    let config_path = get_settings_path()?;
+    let config = File::options()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&config_path)
+        .with_context(|| {
+            format!(
+                "failed to open app config at {}",
+                config_path.to_string_lossy()
+            )
+        })?;
+    let mut config = BufWriter::new(config);
+
+    // Use serde_json::to_writer_pretty for nicely formatted JSON
+    serde_json::to_writer_pretty(&mut config, settings) // <--- Changed
+        .context("failed to serialize app config")?;
+
+    log::info!("Saved app config to {}", config_path.to_string_lossy());
+    Ok(())
+} */

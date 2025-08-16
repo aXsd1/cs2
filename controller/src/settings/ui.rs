@@ -122,6 +122,11 @@ struct Versions {
     csesp: String,
 }
 
+#[derive(Deserialize)]
+    struct ServerResponse {
+        resultCode: String,
+    }
+
 impl GrenadeSettingsTarget {
     pub fn ui_token(&self) -> Cow<'static, str> {
         match self {
@@ -321,25 +326,31 @@ fn perform_full_login_check(username: &str, password: &str) -> Result<String, St
     // =================================================================
     let hwid = get_hwid()?;
 
-    let params = [("username", username), ("password", password), ("hwid", &hwid)];
-    let response = client.post("https://yeageth.com/usercheck_csesp.php")
+    let params = [("username", username), ("password", password), ("hwid", &hwid),];
+
+    let response = client
+        .post("https://yeageth.com/usercheck_csesp.php")
         .form(&params)
-        .send().map_err(|e| format!("Login request failed: {}", e))?;
-    
+        .send()
+        .map_err(|e| format!("Login request failed: {}", e))?;
+
     if !response.status().is_success() {
         return Err(format!("Server returned error: {}", response.status()));
     }
-    
+
     let data: String = response
         .text()
         .map_err(|_| "Invalid response from server".to_string())?;
-    
-        println!("Server response: {:?}", data);
-    
-    if data == local_code {
+
+    // JSON parse et
+    let parsed: ServerResponse =
+        serde_json::from_str(&data).map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+    // Karşılaştırma
+    if parsed.resultCode == local_code {
         Ok("Login Successful!".to_string())
     } else {
-        Err(match data.as_str() {
+        Err(match parsed.resultCode.as_str() {
             "1" => "Subscription ended".to_string(),
             "2" => "You don't have access to this product".to_string(),
             "3" => "HWID didn't match".to_string(),

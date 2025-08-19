@@ -15,6 +15,7 @@ use std::{
             Ordering,
         },
         Arc,
+        Mutex,
     },
     time::{
         Duration,
@@ -159,6 +160,8 @@ pub struct Application {
     pub settings_ui: RefCell<SettingsUI>,
     pub settings_screen_capture_changed: AtomicBool,
     pub settings_render_debug_window_changed: AtomicBool,
+
+    pub username_state: Arc<Mutex<Option<String>>>,
 }
 
 impl Application {
@@ -546,6 +549,8 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         }
     }
 
+    let username_state = Arc::new(Mutex::new(None::<String>));
+
     let app = Application {
         fonts: app_fonts,
         app_state,
@@ -571,6 +576,7 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         /* set the screen capture visibility at the beginning of the first update */
         settings_screen_capture_changed: AtomicBool::new(true),
         settings_render_debug_window_changed: AtomicBool::new(true),
+        username_state: username_state.clone(),
     };
     let app = Rc::new(RefCell::new(app));
 
@@ -586,39 +592,47 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
     // Clone for background thread
     let bg_url = settings_url.clone();
     let bg_tx = settings_tx.clone();
+    let bg_username_state = username_state.clone(); 
 
     thread::spawn(move || {
+        let client = reqwest::blocking::Client::new(); // << YENİ: Client oluşturuluyor
         loop {
-            match reqwest::blocking::get(&bg_url) {
-                Ok(resp) => {
-                    match resp.text() {
-                        Ok(body) => {
-                            match serde_yaml::from_str::<AppSettings>(&body) {
-                                Ok(remote_settings) => {
-                                    if let Err(e) = bg_tx.send(remote_settings) {
-                                        log::error!("Failed to send settings to main thread: {}", e);
-                                        // If the receiver was dropped, stop the thread
-                                        break;
-                                    } else {
-                                        log::info!("Remote settings fetched and sent.");
+            // Paylaşılan state'ten kullanıcı adını al
+            let username = bg_username_state.lock().unwrap().clone();
+
+            // Sadece kullanıcı adı varsa (giriş yapılmışsa) isteği gönder
+            if let Some(user) = username {
+                let params = [("username", user)];
+                match client.post(&bg_url).form(&params).send() { // << DEĞİŞTİ: GET yerine POST
+                    Ok(resp) => {
+                        match resp.text() {
+                            Ok(body) => {
+                                match serde_yaml::from_str::<AppSettings>(&body) {
+                                    Ok(remote_settings) => {
+                                        if let Err(e) = bg_tx.send(remote_settings) {
+                                            log::error!("Failed to send settings to main thread: {}", e);
+                                            break;
+                                        } else {
+                                            log::info!("Remote settings fetched and sent for user.");
+                                        }
+                                    }
+                                    Err(e) => {
+                                        log::error!("Failed to parse YAML from remote settings: {:#}", e);
                                     }
                                 }
-                                Err(e) => {
-                                    log::error!("Failed to parse YAML from remote settings: {:#}", e);
-                                }
+                            }
+                            Err(e) => {
+                                log::error!("Failed to read response body from settings URL: {}", e);
                             }
                         }
-                        Err(e) => {
-                            log::error!("Failed to read response body from settings URL: {}", e);
-                        }
+                    }
+                    Err(e) => {
+                        log::error!("Failed to fetch settings URL: {}", e);
                     }
                 }
-                Err(e) => {
-                    log::error!("Failed to fetch settings URL: {}", e);
-                }
             }
-
-            // Sleep 30 seconds before next fetch
+            
+            // Sonraki denemeden önce 30 saniye bekle
             thread::sleep(StdDuration::from_secs(30));
         }
     });

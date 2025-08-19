@@ -397,13 +397,13 @@ impl SettingsUI {
         unicode_text: &UnicodeTextRenderer,
     ) {
         match self.ui_state {
-            UiState::Login => self.render_login_screen(ui),
+            UiState::Login => self.render_login_screen(app, ui),
             UiState::LoggedIn => self.render_main_ui(app, ui, unicode_text),
         }
     }
 
     /// Login ekranını çizen fonksiyon.
-    fn render_login_screen(&mut self, ui: &imgui::Ui) {
+    fn render_login_screen(&mut self, app: &Application, ui: &imgui::Ui) {
         let display_size = ui.io().display_size;
         let window_size = [400.0, 220.0];
         let window_pos = [(display_size[0] - window_size[0]) * 0.5, (display_size[1] - window_size[1]) * 0.5];
@@ -447,7 +447,11 @@ impl SettingsUI {
                 if let Ok(mut result_lock) = self.login_state.result_handle.try_lock() {
                     if let Some(result) = result_lock.take() {
                         match result {
-                            Ok(_) => self.ui_state = UiState::LoggedIn,
+                            Ok(_) => {
+                                self.ui_state = UiState::LoggedIn;
+                                let mut username_state = app.username_state.lock().unwrap();
+                                *username_state = Some(self.login_state.username.clone());
+                            },
                             Err(e) => self.login_state.status = LoginStatus::Failed(e),
                         }
                     }
@@ -465,7 +469,7 @@ impl SettingsUI {
 
     pub fn render_main_ui(
         &mut self,
-        _app: &Application,
+        app: &Application,
         ui: &imgui::Ui,
         _unicode_text: &UnicodeTextRenderer,
     ) {

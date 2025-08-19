@@ -643,7 +643,7 @@ impl SettingsUI {
                 const COMBO_WIDTH: f32 = 150.0;
                 {
                     const ESP_BOX_TYPES: [(EspBoxType, &'static str); 3] = [
-                        (EspBoxType::None, "No"),
+                        (EspBoxType::None, "Off"),
                         (EspBoxType::Box2D, "2D"),
                         (EspBoxType::Box3D, "3D"),
                     ];
@@ -660,8 +660,8 @@ impl SettingsUI {
                     }
 
                     const PLAYER_SKELETON_TYPES: [(PlayerSkeletonType, &'static str); 2] = [
-                        (PlayerSkeletonType::None, "No"),
-                        (PlayerSkeletonType::Skeleton, "Show"),
+                        (PlayerSkeletonType::None, "Off"),
+                        (PlayerSkeletonType::Skeleton, "On"),
                     ];
 
                     let mut skeleton_type = if config.skeleton {
@@ -684,9 +684,9 @@ impl SettingsUI {
 
                 {
                     const HEAD_DOT_TYPES: [(EspHeadDot, &'static str); 3] = [
-                        (EspHeadDot::None, "No"),
+                        (EspHeadDot::None, "Off"),
                         (EspHeadDot::Filled, "Filled"),
-                        (EspHeadDot::NotFilled, "Not Filled"),
+                        (EspHeadDot::NotFilled, "Outlined"),
                     ];
 
                     ui.set_next_item_width(COMBO_WIDTH);
@@ -695,12 +695,12 @@ impl SettingsUI {
 
                 {
                     const TRACER_LINE_TYPES: [(EspTracePosition, &'static str); 7] = [
-                        (EspTracePosition::None, "No"),
+                        (EspTracePosition::None, "Off"),
                         (EspTracePosition::TopLeft, "Top left"),
-                        (EspTracePosition::TopCenter, "Top (center)"),
+                        (EspTracePosition::TopCenter, "Top center"),
                         (EspTracePosition::TopRight, "Top right"),
                         (EspTracePosition::BottomLeft, "Bottom left"),
-                        (EspTracePosition::BottomCenter, "Bottom (center)"),
+                        (EspTracePosition::BottomCenter, "Bottom center"),
                         (EspTracePosition::BottomRight, "Bottom right"),
                     ];
 
@@ -714,7 +714,7 @@ impl SettingsUI {
 
                 {
                     const HEALTH_BAR_TYPES: [(EspHealthBar, &'static str); 5] = [
-                        (EspHealthBar::None, "No"),
+                        (EspHealthBar::None, "Off"),
                         (EspHealthBar::Top, "Top"),
                         (EspHealthBar::Left, "Left"),
                         (EspHealthBar::Bottom, "Bottom"),

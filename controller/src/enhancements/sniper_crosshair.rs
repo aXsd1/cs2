@@ -10,6 +10,7 @@ use cs2::{
 use cs2_schema_generated::cs2::client::{
     CBasePlayerController,
     C_CSObserverPawn,
+    C_CSPlayerPawn,
     C_CSPlayerPawnBase,
     C_EconEntity,
 };
@@ -57,6 +58,7 @@ impl SniperCrosshair {
                     .context("player pawn nullptr")?;
 
                 let weapon_ref = match player_pawn
+                    .cast::<dyn C_CSPlayerPawn>()
                     .m_pClippingWeapon()?
                     .value_reference(memory.view_arc())
                 {
@@ -97,6 +99,7 @@ impl SniperCrosshair {
                     .cast::<dyn C_CSPlayerPawnBase>();
 
                 let weapon_ref = match player_pawn
+                    .cast::<dyn C_CSPlayerPawn>()
                     .m_pClippingWeapon()?
                     .value_reference(memory.view_arc())
                 {

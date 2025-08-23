@@ -297,7 +297,7 @@ impl Application {
         if settings.valthrun_watermark {
             {
                 let text_buf;
-                let text = obfstr!(text_buf = "Valthrun Overlay");
+                let text = obfstr!(text_buf = "Overlay");
 
                 ui.set_cursor_pos([
                     ui.window_size()[0] - ui.calc_text_size(text)[0] - 10.0,
@@ -363,7 +363,7 @@ fn main() {
 }
 
 #[derive(Debug, Parser)]
-#[clap(name = "Valthrun", version)]
+#[clap(name = "Yeageth", version)]
 struct AppArgs {
     /// Enable verbose logging ($env:RUST_LOG="trace")
     #[clap(short, long)]
@@ -379,7 +379,7 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
     let build_info = version_info()?;
     log::info!(
         "{} v{} ({}). Windows build {}.",
-        obfstr!("Valthrun"),
+        obfstr!("Yeageth"),
         env!("CARGO_PKG_VERSION"),
         env!("GIT_HASH"),
         build_info.dwBuildNumber
@@ -429,7 +429,7 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
             ]
             .join("\n");
 
-            let result = dialog::show_yes_no(obfstr!("Valthrun"), &message, false);
+            let result = dialog::show_yes_no(obfstr!("Yeageth"), &message, false);
             if !result {
                 log::info!("{}", obfstr!("Aborting launch due to user input."));
                 return Ok(());

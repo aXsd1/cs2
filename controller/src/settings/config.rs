@@ -54,7 +54,7 @@ fn default_color<const R: u8, const G: u8, const B: u8, const A: u8>() -> Color 
 }
 
 fn default_key_settings() -> HotKey {
-    Key::Pause.into()
+    Key::Home.into()
 }
 fn default_key_trigger_bot() -> Option<HotKey> {
     Some(Key::MouseMiddle.into())

@@ -1858,7 +1858,7 @@ impl SettingsUI {
                         Box::new(move || {
                             // GrenadeHelperTransferState
                             let Some(target_path) = rfd::FileDialog::new()
-                                .add_filter("Valthrun Grenade Spots", &["vgs"])
+                                .add_filter("Grenade Spots", &["vgs"])
                                 .save_file()
                             else {
                                 return Ok(GrenadeHelperTransferState::Idle);
@@ -1880,7 +1880,7 @@ impl SettingsUI {
                         Box::new(move || {
                             // GrenadeHelperTransferState
                             let Some(target_path) = rfd::FileDialog::new()
-                                .add_filter("Valthrun Grenade Spots", &["vgs"])
+                                .add_filter("Grenade Spots", &["vgs"])
                                 .pick_file()
                             else {
                                 return Ok(GrenadeHelperTransferState::Idle);

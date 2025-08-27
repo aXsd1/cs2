@@ -290,7 +290,7 @@ fn get_hwid() -> Result<String, String> {
 /// Tüm karmaşık login mantığını yürüten ana fonksiyon.
 fn perform_full_login_check(username: &str, password: &str) -> Result<String, String> {
 
-    const PROGRAM_CSESP_VERSION: &str = "1";
+    const PROGRAM_CSESP_VERSION: &str = "1.1";
 
     let client = reqwest::blocking::Client::new();
 
@@ -304,7 +304,7 @@ fn perform_full_login_check(username: &str, password: &str) -> Result<String, St
     // Sunucudan gelen versiyon bilgilerini kontrol et
     if version_info.versions.csesp != PROGRAM_CSESP_VERSION {
         // Eğer versiyonlar uyuşmuyorsa, işlemi hemen bitir ve hata döndür.
-        return Err("Uygulama sürümü güncel değil. Lütfen güncelleyin.".to_string());
+        return Err("Application is not up to date. Please redownload.".to_string());
     }
 
     // =================================================================

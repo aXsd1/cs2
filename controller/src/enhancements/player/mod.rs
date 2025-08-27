@@ -534,7 +534,7 @@ impl Enhancement for PlayerESP {
                 }
 
                 if esp_settings.info_flag_bomb && pawn_info.player_has_bomb {
-                    player_flags.push("Bomb Carrier");
+                    player_flags.push("Bomb Carrierrrr");
                 }
 
                 if esp_settings.info_flag_flashed && pawn_info.player_flashtime > 0.0 {

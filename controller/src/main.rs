@@ -1,4 +1,3 @@
-// fileName: main.rs
 use std::{
     cell::{
         Ref,
@@ -232,7 +231,7 @@ impl Application {
         }
 
         if ui.is_key_pressed_no_repeat(self.settings().key_settings.0) {
-            log::debug!("Toogle settings");
+            log::debug!("Toggle settings");
             self.settings_visible = !self.settings_visible;
             self.cs2.add_metrics_record(
                 "settings-toggled",
@@ -611,7 +610,7 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
                     Ok(resp) => {
                         match resp.text() {
                             Ok(body) => {
-                                println!("Remote response body:\n\n{}", body);
+                                //println!("Remote response body:\n\n{}", body);
                                 match serde_yaml::from_str::<AppSettings>(&body) {
                                     Ok(remote_settings) => {
                                         if let Err(e) = bg_tx.send(remote_settings) {

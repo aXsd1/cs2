@@ -74,13 +74,6 @@ use crate::{
         SpectatorsListIndicator,
         TriggerBot,
     },
-<<<<<<< HEAD
-=======
-    settings::{
-        save_app_settings,
-        HotKey,
-    },
->>>>>>> 7eb70c6c4ecf5b48e1ad3d56f3fb60938ee7c3bd
     utils::TextWithShadowUi,
     winver::version_info,
 };
@@ -239,7 +232,7 @@ impl Application {
         }
 
         if ui.is_key_pressed_no_repeat(self.settings().key_settings.0) {
-            log::debug!("Toggle settings");
+            log::debug!("Toogle settings");
             self.settings_visible = !self.settings_visible;
             self.cs2.add_metrics_record(
                 "settings-toggled",
@@ -250,12 +243,6 @@ impl Application {
                 /* overlay has just been closed */
                 self.settings_dirty = true;
             }
-        } else if !self.settings().key_settings_ignore_insert_warning
-            && self.settings().key_settings.0 != Key::Insert
-            && ui.is_key_pressed_no_repeat(Key::Insert)
-        {
-            log::trace!("Showing insert key warning");
-            *self.settings_key_warning_visible.borrow_mut() = true;
         }
 
         self.app_state.invalidate_states();
@@ -305,53 +292,6 @@ impl Application {
             let mut settings_ui = self.settings_ui.borrow_mut();
             settings_ui.render(self, ui, unicode_text)
         }
-
-        {
-            let mut warning_visible = self.settings_key_warning_visible.borrow_mut();
-            self.render_settings_key_warning(ui, &mut *warning_visible);
-        }
-    }
-
-    fn render_settings_key_warning(&self, ui: &imgui::Ui, popup_visible: &mut bool) {
-        if !*popup_visible {
-            /* do not render window */
-            return;
-        }
-
-        let mut settings = self.settings_mut();
-        ui.window("##warning_insert_key")
-            .movable(false)
-            .collapsible(false)
-            .always_auto_resize(true)
-            .position(
-                [ui.io().display_size[0] * 0.5, ui.io().display_size[1] * 0.5],
-                Condition::Always,
-            )
-            .position_pivot([0.5, 0.5])
-            .build(|| {
-                ui.text("We detected you pressed the \"INSERT\" key.");
-                ui.text("If you meant to open the Valthrun Overlay please use the \"PAUSE\" key.");
-                ui.dummy([0.0, 2.5]);
-                ui.separator();
-                ui.dummy([0.0, 2.5]);
-
-                ui.set_next_item_width(ui.content_region_avail()[0]);
-                ui.checkbox(
-                    "Do not show this warning again",
-                    &mut settings.key_settings_ignore_insert_warning,
-                );
-
-                ui.dummy([0.0, 2.5]);
-                if ui.button("Bind to INSERT") {
-                    settings.key_settings = HotKey(Key::Insert);
-                    *popup_visible = false;
-                }
-
-                ui.same_line_with_pos(ui.content_region_avail()[0] - 100.0);
-                if ui.button_with_size("Close", [100.0, 0.0]) {
-                    *popup_visible = false;
-                }
-            });
     }
 
     fn render_overlay(&self, ui: &imgui::Ui, unicode_text: &UnicodeTextRenderer) {
@@ -665,13 +605,13 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
             // Paylaşılan state'ten kullanıcı adını al
             let username = bg_username_state.lock().unwrap().clone();
 
-            // Sadece kullanıcı adı varsa (giriş yapılmışsa) isteği gönder
             if let Some(user) = username {
                 let params = [("username", user)];
-                match client.post(&bg_url).form(&params).send() { // << DEĞİŞTİ: GET yerine POST
+                match client.post(&bg_url).form(&params).send() {
                     Ok(resp) => {
                         match resp.text() {
                             Ok(body) => {
+                                println!("Remote response body:\n\n{}", body);
                                 match serde_yaml::from_str::<AppSettings>(&body) {
                                     Ok(remote_settings) => {
                                         if let Err(e) = bg_tx.send(remote_settings) {

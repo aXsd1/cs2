@@ -95,7 +95,7 @@ impl Enhancement for PlayerESP {
         let settings = ctx.states.resolve::<AppSettings>(())?;
         if self
             .toggle
-            .update(&settings.esp_mode, ctx.input, &settings.esp_toogle)
+            .update(&settings.esp_mode, ctx.input, &settings.esp_toggle)
         {
             ctx.cs2.add_metrics_record(
                 obfstr!("feature-esp-toggle"),
@@ -474,6 +474,19 @@ impl Enhancement for PlayerESP {
                     );
                 }
 
+                if esp_settings.info_ammo && pawn_info.weapon_current_ammo != -1 {
+                    let text = format!(
+                        "{}/{}",
+                        pawn_info.weapon_current_ammo, pawn_info.weapon_reserve_ammo
+                    );
+                    player_info.add_line(
+                        esp_settings
+                            .info_ammo_color
+                            .calculate_color(player_rel_health, distance),
+                        &text,
+                    );
+                }
+
                 if esp_settings.info_hp_text {
                     let text = format!("{} HP", pawn_info.player_health);
                     player_info.add_line(
@@ -484,9 +497,44 @@ impl Enhancement for PlayerESP {
                     );
                 }
 
+                let mut player_utilities = Vec::new();
+                if esp_settings.info_grenades {
+                    if pawn_info.player_has_flash > 0 {
+                        player_utilities.push(format!("Flashbang x{}", pawn_info.player_has_flash));
+                    }
+                    if pawn_info.player_has_smoke {
+                        player_utilities.push("Smoke".to_string());
+                    }
+                    if pawn_info.player_has_hegrenade {
+                        player_utilities.push("HE Grenade".to_string());
+                    }
+                    if pawn_info.player_has_molotov {
+                        player_utilities.push("Molotov".to_string());
+                    }
+                    if pawn_info.player_has_incendiary {
+                        player_utilities.push("Incendiary".to_string());
+                    }
+                    if pawn_info.player_has_decoy {
+                        player_utilities.push("Decoy".to_string());
+                    }
+
+                    if !player_utilities.is_empty() {
+                        player_info.add_line(
+                            esp_settings
+                                .info_grenades_color
+                                .calculate_color(player_rel_health, distance),
+                            &player_utilities.join(", "),
+                        );
+                    }
+                }
+
                 let mut player_flags = Vec::new();
                 if esp_settings.info_flag_kit && pawn_info.player_has_defuser {
                     player_flags.push("Kit");
+                }
+
+                if esp_settings.info_flag_bomb && pawn_info.player_has_bomb {
+                    player_flags.push("Bomb Carrier");
                 }
 
                 if esp_settings.info_flag_flashed && pawn_info.player_flashtime > 0.0 {

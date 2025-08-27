@@ -1,5 +1,5 @@
 use cs2::{
-    PlantedC4,
+    state::PlantedC4,
     PlantedC4State,
 };
 use imgui::ImColor32;
@@ -13,8 +13,8 @@ use crate::{
         UnicodeTextWithShadowUi,
     },
 };
-pub struct BombInfoIndicator {}
 
+pub struct BombInfoIndicator {}
 impl BombInfoIndicator {
     pub fn new() -> Self {
         Self {}
@@ -39,11 +39,12 @@ impl Enhancement for BombInfoIndicator {
         unicode_text: &UnicodeTextRenderer,
     ) -> anyhow::Result<()> {
         let settings = states.resolve::<AppSettings>(())?;
+        let bomb_state = states.resolve::<PlantedC4>(())?;
+
         if !settings.bomb_timer {
             return Ok(());
         }
 
-        let bomb_state = states.resolve::<PlantedC4>(())?;
         if matches!(bomb_state.state, PlantedC4State::NotPlanted) {
             return Ok(());
         }

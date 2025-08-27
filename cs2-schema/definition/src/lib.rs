@@ -14,8 +14,8 @@ pub use definition_enum::*;
 mod definition_class;
 pub use definition_class::*;
 
-mod inheritage;
-pub use inheritage::*;
+mod inheritance;
+pub use inheritance::*;
 
 mod writer;
 use serde::{
@@ -37,14 +37,14 @@ pub fn emit_to_dir(target: impl AsRef<Path>, scopes: &[SchemaScope]) -> anyhow::
     let target = target.as_ref();
     fs::create_dir_all(target).context("mkdirs")?;
 
-    let inheritage = InheritageMap::build(scopes);
+    let inheritance = InheritanceMap::build(scopes);
     for scope in scopes.iter() {
         let mut writer = FileEmitter::new(target.join(format!(
             "{}.rs",
             mod_name_from_schema_name(&scope.schema_name)
         )))?;
 
-        scope.emit_rust_definition(&mut writer, &inheritage)?;
+        scope.emit_rust_definition(&mut writer, &inheritance)?;
     }
 
     /* create the mod.rs */

@@ -10,7 +10,7 @@ import IconPlayerDead from "./icon_player_dead.svg";
 import IconPlayer from "./icon_player.svg";
 import { F32, RadarPlayerPawn, RadarState } from "../../../../backend/definitions";
 import SizedContainer from "../../../components/container/sized-container";
-import SqareContainer, { useSqareSize } from "../../../components/container/sqare-container";
+import SquareContainer, { useSquareSize } from "../../../components/container/square-container";
 import { useQuery } from "react-query";
 
 export const ContextRadarState = React.createContext<RadarState>(kDefaultRadarState);
@@ -135,7 +135,7 @@ const MapContainer = React.memo(() => {
                     const minAxis = Math.min(size.width, size.height);
                     const maxAxis = Math.max(size.width, size.height);
 
-                    const sqareSize = Math.min(minAxis, maxAxis / 2);
+                    const squareSize = Math.min(minAxis, maxAxis / 2);
                     return (
                         <Box sx={{
                             display: "flex",
@@ -145,18 +145,18 @@ const MapContainer = React.memo(() => {
                             justifyContent: "center"
                         }}>
                             {map.verticalSections.map(section => (
-                                <SqareContainer sqareSize={sqareSize} key={section.name}>
+                                <SquareContainer squareSize={squareSize} key={section.name}>
                                     <MapLevel level={section.name} />
-                                </SqareContainer>
+                                </SquareContainer>
                             ))}
                         </Box>
                     )
                 } else {
                     const minAxis = Math.min(size.width, size.height);
                     return (
-                        <SqareContainer sqareSize={minAxis} >
+                        <SquareContainer squareSize={minAxis} >
                             <MapLevel level={localMapLevel} />
-                        </SqareContainer>
+                        </SquareContainer>
                     );
                 }
 
@@ -267,7 +267,7 @@ export const MapPlayerIcon = (props: {
     isBroadcaster: boolean;
 }) => {
     const { position, health, rotation, isBroadcaster } = props;
-    const mapWidth = useSqareSize();
+    const mapWidth = useSquareSize();
     const iconSize = useAppSelector((state) => state.radarSettings.iconSize);
     const iconWidth = (mapWidth * iconSize) / 100;
 

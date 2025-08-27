@@ -39,7 +39,7 @@ struct Args {
     schema_file: Option<PathBuf>,
 
     /// Use a dummy generator instead of generating the radar data from CS2.
-    /// This is usefull when testing the radar client without CS2.
+    /// This is useful when testing the radar client without CS2.
     #[arg(long, hide = true)]
     dummy_generator: bool,
 }

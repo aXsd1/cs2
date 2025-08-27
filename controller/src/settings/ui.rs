@@ -737,10 +737,13 @@ impl SettingsUI {
                 ui.text("Player Info");
                 ui.checkbox(obfstr!("Name"), &mut config.info_name);
                 ui.checkbox(obfstr!("Weapon"), &mut config.info_weapon);
+                ui.checkbox(obfstr!("Ammo"), &mut config.info_ammo);
                 ui.checkbox(obfstr!("Distance"), &mut config.info_distance);
                 ui.checkbox(obfstr!("Health"), &mut config.info_hp_text);
                 ui.checkbox(obfstr!("Kit"), &mut config.info_flag_kit);
                 ui.checkbox(obfstr!("Flashed"), &mut config.info_flag_flashed);
+                ui.checkbox(obfstr!("Bomb Carrier"), &mut config.info_flag_bomb);
+                ui.checkbox(obfstr!("Grenades"), &mut config.info_grenades);
                 ui.checkbox(obfstr!("Near only"), &mut config.near_players);
                 if config.near_players {
                     ui.same_line();
@@ -899,6 +902,13 @@ impl SettingsUI {
                     ui.table_next_row();
                     Self::render_esp_settings_player_style_color(
                         ui,
+                        obfstr!("Color info ammo"),
+                        &mut config.info_ammo_color,
+                    );
+
+                    ui.table_next_row();
+                    Self::render_esp_settings_player_style_color(
+                        ui,
                         obfstr!("Color info health"),
                         &mut config.info_hp_text_color,
                     );
@@ -908,6 +918,13 @@ impl SettingsUI {
                         ui,
                         obfstr!("Color info player flags"),
                         &mut config.info_flags_color,
+                    );
+
+                    ui.table_next_row();
+                    Self::render_esp_settings_player_style_color(
+                        ui,
+                        obfstr!("Color info grenades"),
+                        &mut config.info_grenades_color,
                     );
                 }
             }
@@ -2009,7 +2026,7 @@ impl SettingsUI {
             GrenadeHelperTransferState::ExportSuccess { target_path } => {
                 let mut popup_open = true;
                 if let Some(_popup) = ui
-                    .modal_popup_config("Export successfull")
+                    .modal_popup_config("Export successful")
                     .opened(&mut popup_open)
                     .always_auto_resize(true)
                     .begin_popup()
@@ -2024,7 +2041,7 @@ impl SettingsUI {
                         popup_open = false;
                     }
                 } else {
-                    ui.open_popup("Export successfull");
+                    ui.open_popup("Export successful");
                 }
 
                 if !popup_open {
@@ -2048,7 +2065,7 @@ impl SettingsUI {
                         popup_open = false;
                     }
                 } else {
-                    ui.open_popup("Import successfull");
+                    ui.open_popup("Import successful");
                 }
 
                 if !popup_open {

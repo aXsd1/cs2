@@ -40,7 +40,7 @@ pub enum StateCacheType {
     Timed(Duration),
 
     /// The state will be removed as soon it get's invalidated.
-    /// The update method will only be called once uppon creation.
+    /// The update method will only be called once upon creation.
     Volatile,
 }
 

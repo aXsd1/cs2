@@ -202,7 +202,7 @@ fn parse_type(
                         .read_string(memory.view())?
                         .context("missing var type")?;
                     if !value.starts_with("CUtlVector<")
-                        || !value.starts_with("C_NetworkUtlVectorBase<")
+                        && !value.starts_with("C_NetworkUtlVectorBase<")
                     {
                         return Ok(None);
                     }
@@ -250,10 +250,14 @@ fn parse_type(
         }
         TypeCategory::DeclaredClass => {
             let type_class = schema_type.cast::<dyn CSchemaTypeDeclaredClass>();
-            let type_class = type_class
-                .declaration()?
-                .value_copy(memory.view())?
-                .context("missing declared class declaration")?;
+
+            let type_class = match type_class.declaration()?.value_copy(memory.view())? {
+                Some(type_class) => type_class,
+                None => {
+                    log::warn!("Encountered null class declaration");
+                    return Ok(None);
+                }
+            };
 
             //let module_name = type_class.module_name()?.read_string(cs2)?;
             let module_name = type_class
@@ -331,9 +335,7 @@ fn read_enum_binding(
         binding_ptr.address,
         definition.enum_name
     );
-    definition
-        .memebers
-        .reserve(binding.member_count()? as usize);
+    definition.members.reserve(binding.member_count()? as usize);
     for member in binding
         .members()?
         .elements(memory.view(), 0..binding.member_count()? as usize)?
@@ -344,7 +346,7 @@ fn read_enum_binding(
             .context("missing enum member name")?;
 
         let member_value = member.value()?;
-        definition.memebers.push(EnumMember {
+        definition.members.push(EnumMember {
             name: member_name,
             value: member_value,
         });

@@ -169,7 +169,7 @@ impl Enhancement for GrenadeHelper {
             eye_direction: local_direction,
         } = *ctx.states.resolve(())?
         else {
-            /* The error message contains, why we do not have a position but this is ignoreable */
+            /* The error message contains, why we do not have a position but this is ignorable */
             return Ok(());
         };
 

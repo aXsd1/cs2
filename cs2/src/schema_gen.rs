@@ -185,6 +185,7 @@ fn parse_type(
                             "CUtlSymbolLarge" => "PtrCStr",
                             "CUtlString" => "dyn CUtlString",
                             "Vector" => "[f32; 0x03]",
+                            "VectorWS" => "[f32; 0x03]", // TODO: What is this?
                             "QAngle" => "[f32; 0x04]",
 
                             "Color" => "Color", // TODO: What is this (3x or 4x f32?)?

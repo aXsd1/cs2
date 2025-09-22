@@ -290,7 +290,7 @@ fn get_hwid() -> Result<String, String> {
 /// Tüm karmaşık login mantığını yürüten ana fonksiyon.
 fn perform_full_login_check(username: &str, password: &str) -> Result<String, String> {
 
-    const PROGRAM_CSESP_VERSION: &str = "1.1";
+    const PROGRAM_CSESP_VERSION: &str = "1.1.1";
 
     let client = reqwest::blocking::Client::new();
 

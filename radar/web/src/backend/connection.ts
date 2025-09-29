@@ -20,12 +20,15 @@ export class SubscriberClient {
 
     private currentState: SubscriberClientState;
     private connection: WebSocket | null;
+    private currentRadarState: RadarState | null;
 
     private commandHandler: { [T in S2CMessage["type"]]?: (payload: (S2CMessage & { type: T })["payload"]) => void } =
         {};
 
     constructor(readonly targetAddress: string) {
         this.events = new EventEmitter();
+        this.events.setMaxListeners(60);
+
         this.currentState = { state: "new" };
         this.connection = null;
 
@@ -45,12 +48,17 @@ export class SubscriberClient {
         };
 
         this.commandHandler["notify-radar-state"] = (payload) => {
+            this.currentRadarState = payload.state;
             this.events.emit("radar.state", payload.state);
         };
 
         this.commandHandler["notify-session-closed"] = () => {
             this.updateState({ state: "disconnected" });
         };
+    }
+
+    public getCurrentRadarState(): Readonly<RadarState> {
+        return this.currentRadarState;
     }
 
     public getState(): Readonly<SubscriberClientState> {

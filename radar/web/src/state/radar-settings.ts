@@ -8,12 +8,21 @@ export type RadarSettingsState = {
     iconSize: number,
     displayBombDetails: boolean,
     showAllLayers: boolean,
+
     mapStyle: string,
+    mapScale: number,
+    mapMarginLeft: number,
+    mapMarginRight: number,
+    mapMarginTop: number,
+    mapMarginBottom: number,
 
     colorDotCT: string;
     colorDotT: string;
     colorDotOwn: string;
     showDotOwn: boolean;
+
+    disablePadding: boolean;
+    hideMapTitle: boolean;
 };
 
 export const kDefaultRadarSettings: RadarSettingsState = {
@@ -21,13 +30,22 @@ export const kDefaultRadarSettings: RadarSettingsState = {
     iconSize: 3.0,
     displayBombDetails: true,
     showAllLayers: true,
+
     mapStyle: "Official",
+    mapScale: 1,
+
+    mapMarginTop: 0,
+    mapMarginLeft: 0,
+    mapMarginRight: 0,
+    mapMarginBottom: 0,
 
     colorDotCT: "#0007ff",
     colorDotT: "#ffc933",
     colorDotOwn: "#e91e63",
 
     showDotOwn: true,
+    disablePadding: false,
+    hideMapTitle: false
 };
 const slice = createSlice({
     name: "radar-settings",

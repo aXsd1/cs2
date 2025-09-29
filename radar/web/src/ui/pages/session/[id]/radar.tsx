@@ -1,137 +1,208 @@
-import { Box, SxProps, Theme, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import * as React from "react";
-import { useContext, useState } from "react";
 import { kDefaultRadarState } from "../../../../backend/connection";
-import { LoadedMap, loadMap, MapStyle } from "../../../../map-info";
+import { LoadedMap, loadMap } from "../../../../map-info";
 import ImageBomb from "../../../../assets/bomb.png";
 import { useAppSelector } from "../../../../state";
 import BombIndicator from "../../../components/bomb/bomb-indicator";
 import IconPlayerDead from "./icon_player_dead.svg";
 import IconPlayer from "./icon_player.svg";
-import { F32, RadarPlayerPawn, RadarState } from "../../../../backend/definitions";
+import { F32, RadarState } from "../../../../backend/definitions";
 import SizedContainer from "../../../components/container/sized-container";
 import SquareContainer, { useSquareSize } from "../../../components/container/square-container";
 import { useQuery } from "react-query";
+import { useSubscriberClient } from "../../../components/connection";
+import { shallowEqual } from "../../../utils/compare";
 
-export const ContextRadarState = React.createContext<RadarState>(kDefaultRadarState);
-const ContextMap = React.createContext<LoadedMap>(null);
+const kUninitialized = Symbol("uninitialized");
+const useRadarState = <V extends any>(selector: (state: RadarState) => V): V => {
+    const internalState = React.useRef<{ value: V | typeof kUninitialized, selector: any }>({ value: kUninitialized, selector });
+    const [_versionId, setVersionId] = React.useState(0);
+    const subscriber = useSubscriberClient();
 
-export const RadarRenderer = React.memo(() => {
-    const { worldName, plantedC4 } = React.useContext(ContextRadarState);
-    const isInMatch = !worldName.includes("empty");
+    if (internalState.current.selector !== selector || internalState.current.value === kUninitialized) {
+        /* state needs recalculation */
+        internalState.current = {
+            selector,
+            value: selector(subscriber.getCurrentRadarState() ?? kDefaultRadarState)
+        }
+    }
 
-    const queryMap = useQuery({
+    React.useEffect(() => {
+        return subscriber.events.on("radar.state", state => {
+            const newValue = selector(state);
+            if (shallowEqual(internalState.current.value, newValue)) {
+                /* value not changed */
+                return;
+            }
+
+            internalState.current.value = newValue;
+            setVersionId(versionId => versionId + 1);
+        });
+    }, [selector, subscriber]);
+
+    return internalState.current.value as V;
+}
+
+const useQueryMap = (worldName: string) => {
+    return useQuery({
         queryKey: ["map-info", worldName],
-        queryFn: async () => {
-            return await loadMap(worldName);
-        },
-        enabled: isInMatch
+        queryFn: async () => await loadMap(worldName),
+        enabled: !worldName.includes("empty")
     });
+};
 
-    const displayBombDetails = useAppSelector(state => state.radarSettings.displayBombDetails);
+const useCurrentMap = () => {
+    const worldName = useRadarState(
+        React.useCallback(state => state.worldName, [])
+    );
+    return useQueryMap(worldName).data ?? null;
+}
+
+const MapTitle = React.memo(() => {
+    const worldName = useRadarState(
+        React.useCallback(state => state.worldName, [])
+    );
+    const queryMap = useQueryMap(worldName);
+
+    const hideMapTitle = useAppSelector(state => state.radarSettings.hideMapTitle);
+    if (hideMapTitle) {
+        return null;
+    }
 
     return (
-        <ContextMap.Provider value={queryMap.data ?? null}>
+        <Typography variant={"h5"}>{queryMap.data?.displayName ?? worldName}</Typography>
+    );
+});
+
+export const RadarRenderer = React.memo(() => {
+    const worldName = useRadarState(React.useCallback(state => state.worldName, []));
+    const queryMap = useQueryMap(worldName);
+
+    const displayBombDetails = useAppSelector(state => state.radarSettings.displayBombDetails);
+    const padding = useAppSelector(state => state.radarSettings.disablePadding ? 0 : 3);
+
+    const isInMatch = !worldName.includes("empty");
+    return (
+        <Box
+            sx={{
+                height: "100%",
+                width: "100%",
+
+                display: "flex",
+                flexDirection: "column",
+
+                p: padding,
+            }}
+        >
+            <MapTitle />
             <Box
                 sx={{
                     height: "100%",
                     width: "100%",
 
                     display: "flex",
-                    flexDirection: "column",
+                    flexDirection: "row",
 
+                    position: "relative",
                     p: 3,
                 }}
             >
-                <Typography variant={"h5"}>{queryMap.data?.displayName ?? worldName}</Typography>
                 <Box
                     sx={{
-                        height: "100%",
-                        width: "100%",
+                        position: "absolute",
+                        zIndex: 1,
+
+                        top: "1em",
+                        left: 0,
+                        right: 0,
 
                         display: "flex",
                         flexDirection: "row",
-
-                        position: "relative",
-                        p: 3,
+                        justifyContent: "center",
                     }}
                 >
-                    <Box
-                        sx={{
-                            position: "absolute",
-                            zIndex: 1,
+                    {displayBombDetails && <RenderBombIndicator />}
+                </Box>
 
-                            top: "1em",
-                            left: 0,
-                            right: 0,
-
-                            display: "flex",
-                            flexDirection: "row",
-                            justifyContent: "center",
-                        }}
-                    >
-                        {displayBombDetails && plantedC4 && <BombIndicator state={plantedC4.state} />}
-                    </Box>
-
-                    {isInMatch && queryMap.isSuccess && (
-                        queryMap.data ? (
-                            <MapContainer />
-                        ) : (
-                            <Box sx={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                                <Typography variant={"h5"} sx={{ alignSelf: "center", color: "error.dark" }}>
-                                    Map Unknown
-                                </Typography>
-                            </Box>
-                        )
-                    )}
-                    {isInMatch && (queryMap.isLoading || queryMap.isError) && (
+                {isInMatch && queryMap.isSuccess && (
+                    queryMap.data ? (
+                        <MapContainer />
+                    ) : (
                         <Box sx={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                            {queryMap.isLoading ? (
-                                <Typography variant={"h5"} sx={{ alignSelf: "center", color: "grey.500" }}>
-                                    loading map info
-                                </Typography>
-                            ) : (
-                                <Typography variant={"h5"} sx={{ alignSelf: "center", color: "palette.error.dark" }}>
-                                    <React.Fragment>
-                                        Failed to load map.<br />
-                                        Lookup the console for more details.
-                                    </React.Fragment>
-                                </Typography>
-                            )}
-                        </Box>
-                    )}
-                    {!isInMatch && (
-                        <Box sx={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                            <Typography variant={"h5"} sx={{ alignSelf: "center", color: "grey.500" }}>
-                                waiting for match
+                            <Typography variant={"h5"} sx={{ alignSelf: "center", color: "error.dark" }}>
+                                Map Unknown
                             </Typography>
                         </Box>
-                    )}
-                </Box>
+                    )
+                )}
+                {isInMatch && (queryMap.isLoading || queryMap.isError) && (
+                    <Box sx={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        {queryMap.isLoading ? (
+                            <Typography variant={"h5"} sx={{ alignSelf: "center", color: "grey.500" }}>
+                                loading map info
+                            </Typography>
+                        ) : (
+                            <Typography variant={"h5"} sx={{ alignSelf: "center", color: "palette.error.dark" }}>
+                                <React.Fragment>
+                                    Failed to load map.<br />
+                                    Lookup the console for more details.
+                                </React.Fragment>
+                            </Typography>
+                        )}
+                    </Box>
+                )}
+                {!isInMatch && (
+                    <Box sx={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <Typography variant={"h5"} sx={{ alignSelf: "center", color: "grey.500" }}>
+                            waiting for match
+                        </Typography>
+                    </Box>
+                )}
             </Box>
-        </ContextMap.Provider>
+        </Box>
+    );
+});
+
+const RenderBombIndicator = React.memo(() => {
+    const plantedC4 = useRadarState(React.useCallback(state => state.plantedC4, []));
+    if (!plantedC4) {
+        return null;
+    }
+
+    return (
+        <BombIndicator state={plantedC4.state} />
     );
 });
 
 const MapContainer = React.memo(() => {
-    const map = React.useContext(ContextMap);
-    const { localControllerEntityId, playerPawns } = React.useContext(ContextRadarState);
-    const showAllLayers = useAppSelector(state => state.radarSettings.showAllLayers);
-    if (!map) {
-        return null;
-    }
+    const currentMap = useCurrentMap();
+    const [showAllLayers, marginLeft, marginRight, marginTop, marginBottom] = useAppSelector(state => [
+        state.radarSettings.showAllLayers,
+        state.radarSettings.mapMarginLeft,
+        state.radarSettings.mapMarginRight,
+        state.radarSettings.mapMarginTop,
+        state.radarSettings.mapMarginBottom,
+    ], shallowEqual);
 
-    const localPlayerPosition = playerPawns.find(pawn => pawn.controllerEntityId === localControllerEntityId)?.position ?? [0, 0, 0];
-    const localMapLevel = getMapLevel(map, localPlayerPosition);
+    const localMapLevel = useRadarState(React.useCallback(state => {
+        const position = state.playerPawns.find(pawn => pawn.controllerEntityId === state.localControllerEntityId)?.position ?? [0, 0, 0];
+        return getMapLevel(currentMap, position);
+    }, [currentMap]));
 
     return (
         <SizedContainer sx={{
             display: "flex",
             flexDirection: "column",
-            justifyContent: "center"
+            justifyContent: "center",
+
+            left: `${marginLeft}%`,
+            right: `${marginRight}%`,
+            top: `${marginTop}%`,
+            bottom: `${marginBottom}%`,
         }}>
             {size => {
-                if (showAllLayers && map.verticalSections.length > 1) {
+                if (showAllLayers && currentMap.verticalSections.length > 1) {
                     const minAxis = Math.min(size.width, size.height);
                     const maxAxis = Math.max(size.width, size.height);
 
@@ -142,9 +213,10 @@ const MapContainer = React.memo(() => {
                             flexDirection: "row",
                             flexWrap: "wrap",
 
-                            justifyContent: "center"
+                            justifyContent: "center",
+                            alignSelf: "center",
                         }}>
-                            {map.verticalSections.map(section => (
+                            {currentMap.verticalSections.map(section => (
                                 <SquareContainer squareSize={squareSize} key={section.name}>
                                     <MapLevel level={section.name} />
                                 </SquareContainer>
@@ -154,7 +226,12 @@ const MapContainer = React.memo(() => {
                 } else {
                     const minAxis = Math.min(size.width, size.height);
                     return (
-                        <SquareContainer squareSize={minAxis} >
+                        <SquareContainer
+                            squareSize={minAxis}
+                            sx={{
+                                alignSelf: "center",
+                            }}
+                        >
                             <MapLevel level={localMapLevel} />
                         </SquareContainer>
                     );
@@ -165,23 +242,87 @@ const MapContainer = React.memo(() => {
     );
 });
 
-const MapLevel = React.memo((props: { level: string }) => {
-    const { level } = props;
-
-    const map = React.useContext(ContextMap);
-    const { playerPawns, c4Entities, plantedC4 } = React.useContext(ContextRadarState);
-    const { colorDotCT, colorDotT, colorDotOwn, mapStyle } = useAppSelector(state => state.radarSettings);
-
-    if (!map) {
-        /* we need the map info */
-        return null;
-    }
-
-    const mapImage = map.mapStyles.find(style => style.name === mapStyle) ?? map.mapStyles[0] ?? null;
+const MapImage = React.memo((props: { level: string }) => {
+    const currentMap = useCurrentMap();
+    const mapStyle = useAppSelector(state => state.radarSettings.mapStyle);
+    const mapImage = currentMap.mapStyles.find(style => style.name === mapStyle) ?? currentMap.mapStyles[0] ?? null;
     return (
         <Box
             sx={{
+                height: "100%",
+                width: "100%",
+                backgroundImage: `url("${mapImage?.map[props.level as keyof typeof mapImage.map]}")`,
+                backgroundPosition: "center",
+                backgroundSize: "cover",
+            }}
+        />
+    );
+});
+
+const CssVariableProvider = (props: { ref: React.RefObject<HTMLElement> }): null => {
+    const currentMap = useCurrentMap();
+    const subscriber = useSubscriberClient();
+
+    React.useEffect(() => {
+        const target = props.ref.current;
+        if (!target) {
+            return;
+        }
+
+        return subscriber.events.on("radar.state", state => {
+            const variables: string[] = [];
+
+            for (const { pawnEntityId, position, rotation } of state.playerPawns) {
+                const mapPosition = getMapPosition(currentMap, position);
+                variables.push(`--pawn-${pawnEntityId}-left: ${mapPosition[0]}`);
+                variables.push(`--pawn-${pawnEntityId}-top: ${mapPosition[1]}`);
+                variables.push(`--pawn-${pawnEntityId}-rotate: ${-rotation + 90}deg`);
+            }
+
+            for (const { entityId, position } of state.c4Entities) {
+                const mapPosition = getMapPosition(currentMap, position);
+                variables.push(`--c4-${entityId}-left: ${mapPosition[0]}`);
+                variables.push(`--c4-${entityId}-top: ${mapPosition[1]}`);
+            }
+
+            const localPlayer = state.playerPawns.find(pawn => pawn.controllerEntityId === state.localControllerEntityId);
+            if (localPlayer) {
+                const mapPosition = getMapPosition(currentMap, localPlayer.position);
+                variables.push(`--map-transform-origin-left: ${mapPosition[0] / 100}`);
+                variables.push(`--map-transform-origin-top: ${mapPosition[1] / 100}`);
+            }
+
+            target.style = variables.join(";\n");
+        });
+    }, [subscriber, currentMap]);
+    return null;
+};
+
+const MapLevel = React.memo((props: { level: string }) => {
+    const { level } = props;
+
+    const refContainer = React.useRef(null);
+    const currentMap = useCurrentMap();
+
+    const visiblePawnIds = useRadarState(React.useCallback(state => state.playerPawns.filter(pawn => getMapLevel(currentMap, pawn.position) === level).map(pawn => pawn.pawnEntityId), [currentMap, level]));
+    const visibleC4EntityIds = useRadarState(React.useCallback(state => state.c4Entities.filter(entity => getMapLevel(currentMap, entity.position) === level).map(entity => entity.entityId), [currentMap, level]));
+    const plantedC4Position = useRadarState(React.useCallback(state => state.plantedC4 && getMapLevel(currentMap, state.plantedC4.position) === level ? state.plantedC4.position : null, [currentMap, level]));
+
+    const [mapScale, colorDotCT, colorDotT, colorDotOwn] = useAppSelector(state => [
+        state.radarSettings.mapScale,
+        state.radarSettings.colorDotCT,
+        state.radarSettings.colorDotT,
+        state.radarSettings.colorDotOwn
+    ], shallowEqual);
+
+    return (
+        <Box
+            ref={refContainer}
+            sx={{
                 position: "relative",
+
+                transformOrigin: "calc(var(--map-transform-origin-left) * var(--square-size)) calc(var(--map-transform-origin-top) * var(--square-size))",
+                transform: `scale(${mapScale})`,
 
                 height: "100%",
                 width: "100%",
@@ -206,18 +347,11 @@ const MapLevel = React.memo((props: { level: string }) => {
                 },
             }}
         >
-            <Box
-                sx={{
-                    height: "100%",
-                    width: "100%",
-                    backgroundImage: `url("${mapImage?.map[level as keyof typeof mapImage.map]}")`,
-                    backgroundPosition: "center",
-                    backgroundSize: "cover",
-                }}
-            />
-            {playerPawns.filter(pawn => getMapLevel(map, pawn.position) === level).map(pawn => <MapPlayerPawn playerInfo={pawn} key={`player-${pawn.pawnEntityId}`} />)}
-            {c4Entities.filter(entity => getMapLevel(map, entity.position) === level).map(entity => <MapC4 position={entity.position} key={`c4-${entity.entityId}`} />)}
-            {plantedC4 && getMapLevel(map, plantedC4.position) === level ? <MapC4 position={plantedC4.position} key="planted-c4" /> : null}
+            <CssVariableProvider ref={refContainer} />
+            <MapImage level={props.level} />
+            {visiblePawnIds.map(pawnId => <MapPlayerPawn key={`pawn-${pawnId}`} pawnId={pawnId} />)}
+            {visibleC4EntityIds.map(entityId => <MapC4 key={`c4-${entityId}`} entityId={entityId} />)}
+            {plantedC4Position ? <MapIconC4 position={getMapPosition(currentMap, plantedC4Position)} key="planted-c4" /> : null}
         </Box>
     );
 });
@@ -226,13 +360,7 @@ const getMapLevel = (map: LoadedMap, position: [F32, F32, F32]): string => {
     return map.verticalSections.find(section => section.altitudeMin <= position[2] && position[2] < section.altitudeMax)?.name ?? "default";
 }
 
-const useMapPosition = (position: [number, number, number]): [number, number] | null => {
-    const map = React.useContext(ContextMap);
-    if (!map) {
-        /* we need the map info */
-        return null;
-    }
-
+const getMapPosition = (map: LoadedMap, position: [number, number, number]): [number, number] => {
     const mapSize = map.scale * 1024;
     return [
         (position[0] - map.pos_x) * 100 / mapSize,
@@ -241,38 +369,48 @@ const useMapPosition = (position: [number, number, number]): [number, number] | 
 };
 
 
-export const MapPlayerPawn = React.memo((props: { playerInfo: RadarPlayerPawn }) => {
-    const showOwn = useAppSelector((state) => state.radarSettings.showDotOwn);
-    const { localControllerEntityId } = useContext(ContextRadarState);
-    const { playerInfo } = props;
-    const playerPosition = useMapPosition(playerInfo.position) ?? [0, 0];
+export const MapPlayerPawn = React.memo((props: { pawnId: number }) => {
+    const highlightOwn = useAppSelector((state) => state.radarSettings.showDotOwn);
+    const iconProps = useRadarState(React.useCallback(state => {
+        const pawn = state.playerPawns.find(pawn => pawn.pawnEntityId === props.pawnId);
+        if (!pawn) {
+            return null;
+        }
+
+        return {
+            pawnId: pawn.pawnEntityId,
+            team: pawn.teamId === 3 ? "ct" : "t",
+            status: pawn.playerHealth > 0 ? "alive" : "dead",
+            isBroadcaster: highlightOwn && pawn.controllerEntityId === state.localControllerEntityId
+        } satisfies MapIconPawnProps;
+    }, [highlightOwn, props.pawnId]));
+
+    if (!iconProps) {
+        /* invalid pawn id */
+        return null;
+    }
+
     return (
-        <MapPlayerIcon
-            position={playerPosition}
-            rotation={playerInfo.playerHealth <= 0 ? 0 : playerInfo.rotation * -1}
-            team={playerInfo.teamId === 3 ? "ct" : "t"}
-            health={playerInfo.playerHealth}
-            isBroadcaster={showOwn && playerInfo.controllerEntityId === localControllerEntityId}
-        />
+        <MapIconPawn {...iconProps} />
     );
 });
 
-export const MapPlayerIcon = (props: {
-    position: [number, number];
-    rotation: number;
+type MapIconPawnProps = {
+    pawnId: number,
 
-    team: "t" | "ct";
-    health: number;
+    team: "t" | "ct",
+    status: "alive" | "dead",
 
     isBroadcaster: boolean;
-}) => {
-    const { position, health, rotation, isBroadcaster } = props;
+};
+export const MapIconPawn = (props: MapIconPawnProps) => {
+    const { pawnId, isBroadcaster, team, status } = props;
     const mapWidth = useSquareSize();
     const iconSize = useAppSelector((state) => state.radarSettings.iconSize);
     const iconWidth = (mapWidth * iconSize) / 100;
 
     let Icon;
-    if (health <= 0) {
+    if (status === "dead") {
         Icon = IconPlayerDead;
     } else {
         Icon = IconPlayer;
@@ -283,22 +421,46 @@ export const MapPlayerIcon = (props: {
             style={{
                 position: "absolute",
 
-                top: `${position[1] * mapWidth / 100 - iconWidth / 2}px`,
-                left: `${position[0] * mapWidth / 100 - iconWidth / 2}px`,
+                top: `calc(var(--pawn-${pawnId}-top) * ${mapWidth / 100}px - ${iconWidth / 2}px)`,
+                left: `calc(var(--pawn-${pawnId}-left) * ${mapWidth / 100}px - ${iconWidth / 2}px)`,
+                rotate: `var(--pawn-${pawnId}-rotate)`,
 
-                rotate: `${rotation + 90}deg`,
                 filter: "drop-shadow(-2px -2px 3px rgba(0, 0, 0, .5))",
             }}
             width={iconWidth}
-            className={`team-${props.team} ${isBroadcaster ? "broadcaster" : ""}`}
+            className={`team-${team} ${isBroadcaster ? "broadcaster" : ""}`}
         />
     );
 };
 
-const MapC4 = React.memo((props: { position: [number, number, number] }) => {
-    const { position } = props;
-    const [bombX, bombY] = useMapPosition(position) ?? [0, 0];
+const MapC4 = React.memo((props: { entityId: number }) => {
+    const { entityId } = props;
 
+    const mapWidth = useSquareSize();
+    const iconSize = useAppSelector((state) => state.radarSettings.iconSize);
+    const iconWidth = (mapWidth * iconSize) / 100;
+
+    return (
+        <Box
+            sx={{
+                top: `calc(var(--c4-${entityId}-top) * ${mapWidth / 100}px - ${iconWidth / 2}px)`,
+                left: `calc(var(--c4-${entityId}-left) * ${mapWidth / 100}px - ${iconWidth / 2}px)`,
+
+                height: `${iconWidth}px`,
+                width: `${iconWidth}px`,
+
+                position: "absolute",
+
+                backgroundImage: `url("${ImageBomb}")`,
+                backgroundPosition: "center",
+                backgroundSize: "contain",
+            }}
+        />
+    );
+});
+
+const MapIconC4 = (props: { position: [number, number] }) => {
+    const [bombX, bombY] = props.position;
     const iconSize = useAppSelector((state) => state.radarSettings.iconSize);
     return (
         <Box
@@ -323,4 +485,4 @@ const MapC4 = React.memo((props: { position: [number, number, number] }) => {
             }
         />
     );
-});
+};

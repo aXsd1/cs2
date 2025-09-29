@@ -12,8 +12,9 @@ export default React.memo((props: {
         <Box
             sx={props.sx}
             style={{
-                width: `${props.squareSize}px`,
-                height: `${props.squareSize}px`,
+                width: `var(--square-size)`,
+                height: `var(--square-size)`,
+                "--square-size": `${props.squareSize}px`
             } as any}
         >
             <SquareSizeContext.Provider value={props.squareSize}>

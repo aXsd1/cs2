@@ -3,6 +3,43 @@
 version = 4
 
 [[package]]
+name = "Yeageth"
+version = "0.5.14"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "chrono-tz",
+ "clap",
+ "cs2",
+ "cs2-schema-cutl",
+ "cs2-schema-generated",
+ "cs2-schema-provider-impl",
+ "env_logger",
+ "imgui",
+ "libloading",
+ "log",
+ "mint",
+ "nalgebra",
+ "obfstr",
+ "overlay",
+ "rand",
+ "raw_struct",
+ "reqwest",
+ "rfd",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "serde_yaml",
+ "tokio",
+ "url",
+ "utils-state",
+ "widestring",
+ "windows 0.53.0",
+ "windows-sys 0.52.0",
+ "winres",
+]
+
+[[package]]
 name = "ab_glyph"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -712,43 +749,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "controller"
-version = "0.5.14"
-dependencies = [
- "anyhow",
- "chrono",
- "chrono-tz",
- "clap",
- "cs2",
- "cs2-schema-cutl",
- "cs2-schema-generated",
- "cs2-schema-provider-impl",
- "env_logger",
- "imgui",
- "libloading",
- "log",
- "mint",
- "nalgebra",
- "obfstr",
- "overlay",
- "rand",
- "raw_struct",
- "reqwest",
- "rfd",
- "serde",
- "serde_json",
- "serde_with",
- "serde_yaml",
- "tokio",
- "url",
- "utils-state",
- "widestring",
- "windows 0.53.0",
- "windows-sys 0.52.0",
- "winres",
 ]
 
 [[package]]

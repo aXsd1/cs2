@@ -41,6 +41,7 @@ use imgui::{
 };
 use obfstr::obfstr;
 use overlay::UnicodeTextRenderer;
+use reqwest::blocking::Client;
 use serde::Deserialize;
 use utils_state::StateRegistry;
 
@@ -292,7 +293,7 @@ fn perform_full_login_check(username: &str, password: &str) -> Result<String, St
 
     const PROGRAM_CSESP_VERSION: &str = "1.1.1";
 
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::blocking::Client::new(); // no await
 
     // =================================================================
     // ADIM 2: SUNUCUDAN BİLGİLERİ AL
@@ -303,7 +304,7 @@ fn perform_full_login_check(username: &str, password: &str) -> Result<String, St
     
     // Sunucudan gelen versiyon bilgilerini kontrol et
     if version_info.versions.csesp != PROGRAM_CSESP_VERSION {
-        // Eğer versiyonlar uyuşmuyorsa, işlemi hemen bitir ve hata döndür.
+        // versiyon uyumsuz
         return Err("Application is not up to date. Please redownload.".to_string());
     }
 

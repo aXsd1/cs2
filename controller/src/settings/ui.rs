@@ -1,3 +1,4 @@
+use std::error::Error as StdError;
 use std::{
     borrow::Cow,
     collections::{
@@ -269,7 +270,6 @@ fn get_hwid() -> Result<String, String> {
             return Err("HWID Error: ConvertSidToStringSidW failed.".to_string());
         }
 
-        // 🔧 DÜZELTME: U16CStr::from_ptr_str kullanılıyor
         let sid_string = U16CStr::from_ptr_str(sid_string_ptr)
             .to_string_lossy();
 
@@ -293,14 +293,55 @@ fn perform_full_login_check(username: &str, password: &str) -> Result<String, St
 
     const PROGRAM_CSESP_VERSION: &str = "1.1.1";
 
-    let client = reqwest::blocking::Client::new(); // no await
+    //let client = reqwest::blocking::Client::new(); // no await
+    //let client = reqwest::blocking::Client::builder()
+    //    .danger_accept_invalid_certs(true)  // sadece test için
+    //    .build()
+    //    .unwrap();
+
+    let client = Client::builder()
+        .use_rustls_tls()
+        //.danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("Client build failed: {}", e))?;
 
     // =================================================================
     // ADIM 2: SUNUCUDAN BİLGİLERİ AL
     // =================================================================
-    let version_info: VersionsResponse = client.get("https://yeageth.com/versions.php")
-        .send().map_err(|e| format!("Network Error: {}", e))?
-        .json().map_err(|e| format!("Data Error: {}", e))?;
+    let version_info: VersionsResponse = client
+        .get("https://yeageth.com/versions.php")
+        .send()
+        .map_err(|e| {
+            use std::fmt::Write;
+            let mut details = String::new();
+
+            let _ = write!(&mut details, "Network Error: {}\n\nDebug: {:?}\n", e, e);
+
+            if e.is_connect() {
+                let _ = write!(&mut details, "Hint: connection error (is_connect = true)\n");
+            }
+            if e.is_timeout() {
+                let _ = write!(&mut details, "Hint: timeout (is_timeout = true)\n");
+            }
+            if let Some(status) = e.status() {
+                let _ = write!(&mut details, "HTTP status: {}\n", status);
+            }
+            if let Some(url) = e.url() {
+                let _ = write!(&mut details, "URL: {}\n", url);
+            }
+
+            let mut src = e.source();
+            while let Some(s) = src {
+                let _ = write!(&mut details, "Caused by: {}\n", s);
+                println!("Caused by: {}", s);
+                src = s.source();
+            }
+
+            details
+        })?
+        .json()
+        .map_err(|e| format!("Data Error: {}", e))?;
+
     
     // Sunucudan gelen versiyon bilgilerini kontrol et
     if version_info.versions.csesp != PROGRAM_CSESP_VERSION {

@@ -53,6 +53,7 @@ export default React.memo(() => {
                 <TabPanel index={0} value={currentTab}>
                     <SettingBoolean target="disablePadding" title="Disable page padding" />
                     <SettingBoolean target="hideMapTitle" title="Hide map title" />
+                    <SettingBoolean target="displayStatistics" title="Display Statistics" />
                 </TabPanel>
 
                 <TabPanel index={1} value={currentTab}>

@@ -1,6 +1,6 @@
 import { Box, Typography } from "@mui/material";
 import * as React from "react";
-import { kDefaultRadarState } from "../../../../backend/connection";
+import { kDefaultRadarState, UpdateStatistics } from "../../../../backend/connection";
 import { LoadedMap, loadMap } from "../../../../map-info";
 import ImageBomb from "../../../../assets/bomb.png";
 import { useAppSelector } from "../../../../state";
@@ -76,12 +76,17 @@ const MapTitle = React.memo(() => {
 });
 
 export const RadarRenderer = React.memo(() => {
+    const client = useSubscriberClient();
     const worldName = useRadarState(React.useCallback(state => state.worldName, []));
     const queryMap = useQueryMap(worldName);
 
-    const displayBombDetails = useAppSelector(state => state.radarSettings.displayBombDetails);
+    const [displayBombDetails, displayStatistics] = useAppSelector(state => [
+        state.radarSettings.displayBombDetails,
+        state.radarSettings.displayStatistics,
+    ], shallowEqual);
     const padding = useAppSelector(state => state.radarSettings.disablePadding ? 0 : 3);
 
+    const renderStatistics = React.useMemo(() => new UpdateStatistics(), []);
     const isInMatch = !worldName.includes("empty");
     return (
         <Box
@@ -127,7 +132,7 @@ export const RadarRenderer = React.memo(() => {
 
                 {isInMatch && queryMap.isSuccess && (
                     queryMap.data ? (
-                        <MapContainer />
+                        <MapContainer renderStatistics={renderStatistics} />
                     ) : (
                         <Box sx={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                             <Typography variant={"h5"} sx={{ alignSelf: "center", color: "error.dark" }}>
@@ -159,6 +164,29 @@ export const RadarRenderer = React.memo(() => {
                         </Typography>
                     </Box>
                 )}
+                {displayStatistics && (
+                    <Box sx={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+
+                        display: "flex",
+                        flexDirection: "column",
+
+                        zIndex: 1,
+                        backgroundColor: "rgba(0, 0, 0, .6)",
+                        p: 2,
+
+                        minHeight: "1em",
+                        width: "18em",
+                    }}>
+                        <Typography>Updates:</Typography>
+                        <DisplayStatistics statistics={client.stateUpdateStatistics} />
+
+                        <Typography sx={{ mt: 1 }}>Renderer:</Typography>
+                        <DisplayStatistics statistics={renderStatistics} />
+                    </Box>
+                )}
             </Box>
         </Box>
     );
@@ -175,7 +203,9 @@ const RenderBombIndicator = React.memo(() => {
     );
 });
 
-const MapContainer = React.memo(() => {
+const MapContainer = React.memo((props: { renderStatistics: UpdateStatistics }) => {
+    const refContainer = React.useRef(null);
+
     const currentMap = useCurrentMap();
     const [showAllLayers, marginLeft, marginRight, marginTop, marginBottom] = useAppSelector(state => [
         state.radarSettings.showAllLayers,
@@ -191,54 +221,57 @@ const MapContainer = React.memo(() => {
     }, [currentMap]));
 
     return (
-        <SizedContainer sx={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
+        <React.Fragment>
+            <CssVariableProvider targetRef={refContainer} renderStatistics={props.renderStatistics} />
+            <SizedContainer ref={refContainer} sx={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
 
-            left: `${marginLeft}%`,
-            right: `${marginRight}%`,
-            top: `${marginTop}%`,
-            bottom: `${marginBottom}%`,
-        }}>
-            {size => {
-                if (showAllLayers && currentMap.verticalSections.length > 1) {
-                    const minAxis = Math.min(size.width, size.height);
-                    const maxAxis = Math.max(size.width, size.height);
+                left: `${marginLeft}%`,
+                right: `${marginRight}%`,
+                top: `${marginTop}%`,
+                bottom: `${marginBottom}%`,
+            }}>
+                {size => {
+                    if (showAllLayers && currentMap.verticalSections.length > 1) {
+                        const minAxis = Math.min(size.width, size.height);
+                        const maxAxis = Math.max(size.width, size.height);
 
-                    const squareSize = Math.min(minAxis, maxAxis / 2);
-                    return (
-                        <Box sx={{
-                            display: "flex",
-                            flexDirection: "row",
-                            flexWrap: "wrap",
+                        const squareSize = Math.min(minAxis, maxAxis / 2);
+                        return (
+                            <Box sx={{
+                                display: "flex",
+                                flexDirection: "row",
+                                flexWrap: "wrap",
 
-                            justifyContent: "center",
-                            alignSelf: "center",
-                        }}>
-                            {currentMap.verticalSections.map(section => (
-                                <SquareContainer squareSize={squareSize} key={section.name}>
-                                    <MapLevel level={section.name} />
-                                </SquareContainer>
-                            ))}
-                        </Box>
-                    )
-                } else {
-                    const minAxis = Math.min(size.width, size.height);
-                    return (
-                        <SquareContainer
-                            squareSize={minAxis}
-                            sx={{
+                                justifyContent: "center",
                                 alignSelf: "center",
-                            }}
-                        >
-                            <MapLevel level={localMapLevel} />
-                        </SquareContainer>
-                    );
-                }
+                            }}>
+                                {currentMap.verticalSections.map(section => (
+                                    <SquareContainer squareSize={squareSize} key={section.name}>
+                                        <MapLevel level={section.name} />
+                                    </SquareContainer>
+                                ))}
+                            </Box>
+                        )
+                    } else {
+                        const minAxis = Math.min(size.width, size.height);
+                        return (
+                            <SquareContainer
+                                squareSize={minAxis}
+                                sx={{
+                                    alignSelf: "center",
+                                }}
+                            >
+                                <MapLevel level={localMapLevel} />
+                            </SquareContainer>
+                        );
+                    }
 
-            }}
-        </SizedContainer>
+                }}
+            </SizedContainer>
+        </React.Fragment>
     );
 });
 
@@ -259,17 +292,31 @@ const MapImage = React.memo((props: { level: string }) => {
     );
 });
 
-const CssVariableProvider = (props: { ref: React.RefObject<HTMLElement> }): null => {
+const CssVariableProvider = (props: { targetRef: React.RefObject<HTMLElement>, renderStatistics: UpdateStatistics }): null => {
+    const { targetRef, renderStatistics } = props;
+
     const currentMap = useCurrentMap();
     const subscriber = useSubscriberClient();
 
     React.useEffect(() => {
-        const target = props.ref.current;
+        const target = targetRef.current;
         if (!target) {
             return;
         }
 
-        return subscriber.events.on("radar.state", state => {
+        let currentRequestFrame: number | null = null;
+        const executeFrame = () => {
+            /* clear the last request */
+            currentRequestFrame = null;
+
+            const state = subscriber.getCurrentRadarState();
+            if (!state) {
+                /* nothing to update */
+                return;
+            }
+
+            renderStatistics.logUpdate();
+
             const variables: string[] = [];
 
             for (const { pawnEntityId, position, rotation } of state.playerPawns) {
@@ -292,16 +339,29 @@ const CssVariableProvider = (props: { ref: React.RefObject<HTMLElement> }): null
                 variables.push(`--map-transform-origin-top: ${mapPosition[1] / 100}`);
             }
 
+            variables.push(`--update-interval: 50ms`);
             target.style = variables.join(";\n");
+        };
+
+        const unsubscrbe = subscriber.events.on("radar.state", () => {
+            if (!currentRequestFrame) {
+                currentRequestFrame = requestAnimationFrame(executeFrame);
+            }
         });
-    }, [subscriber, currentMap]);
+
+        return () => {
+            unsubscrbe();
+            if (currentRequestFrame) {
+                cancelAnimationFrame(currentRequestFrame);
+                currentRequestFrame = null;
+            }
+        };
+    }, [targetRef, renderStatistics, subscriber, currentMap]);
     return null;
 };
 
 const MapLevel = React.memo((props: { level: string }) => {
     const { level } = props;
-
-    const refContainer = React.useRef(null);
     const currentMap = useCurrentMap();
 
     const visiblePawnIds = useRadarState(React.useCallback(state => state.playerPawns.filter(pawn => getMapLevel(currentMap, pawn.position) === level).map(pawn => pawn.pawnEntityId), [currentMap, level]));
@@ -317,12 +377,12 @@ const MapLevel = React.memo((props: { level: string }) => {
 
     return (
         <Box
-            ref={refContainer}
             sx={{
                 position: "relative",
 
                 transformOrigin: "calc(var(--map-transform-origin-left) * var(--square-size)) calc(var(--map-transform-origin-top) * var(--square-size))",
                 transform: `scale(${mapScale})`,
+                transition: "all var(--update-interval) linear",
 
                 height: "100%",
                 width: "100%",
@@ -345,9 +405,12 @@ const MapLevel = React.memo((props: { level: string }) => {
                         fill: colorDotOwn,
                     },
                 },
+
+                "svg": {
+                    transition: "all var(--update-interval) linear"
+                }
             }}
         >
-            <CssVariableProvider ref={refContainer} />
             <MapImage level={props.level} />
             {visiblePawnIds.map(pawnId => <MapPlayerPawn key={`pawn-${pawnId}`} pawnId={pawnId} />)}
             {visibleC4EntityIds.map(entityId => <MapC4 key={`c4-${entityId}`} entityId={entityId} />)}
@@ -428,7 +491,7 @@ export const MapIconPawn = (props: MapIconPawnProps) => {
                 filter: "drop-shadow(-2px -2px 3px rgba(0, 0, 0, .5))",
             }}
             width={iconWidth}
-            className={`team-${team} ${isBroadcaster ? "broadcaster" : ""}`}
+            className={`animated team-${team} ${isBroadcaster ? "broadcaster" : ""}`}
         />
     );
 };
@@ -486,3 +549,24 @@ const MapIconC4 = (props: { position: [number, number] }) => {
         />
     );
 };
+
+const DisplayStatistics = React.memo((props: { statistics: UpdateStatistics }) => {
+    const { statistics } = props;
+    const [_renderId, setRenderId] = React.useState(0);
+
+    React.useEffect(() => {
+        const updateId = setInterval(() => setRenderId(value => value + 1), 250);
+        return () => clearInterval(updateId);
+    }, []);
+
+
+    const history = statistics.getHistory();
+    const average = statistics.getAverageInterval();
+    const maxTime = history.reduce((max, current) => Math.max(max, current), history[0]);
+    return (
+        <React.Fragment>
+            <Typography>Update time: {average.toFixed(0)}ms ({Math.round(1000 / average)} ups)</Typography>
+            <Typography>Max time: {maxTime.toFixed(0)}ms</Typography>
+        </React.Fragment>
+    )
+});

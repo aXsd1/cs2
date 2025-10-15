@@ -87,7 +87,7 @@ impl CS2Offset {
                 Module::Client,
                 Signature::relative_address(
                     obfstr!("global entity list"),
-                    obfstr!("4C 8B 0D ? ? ? ? 48 89 5C 24 ? 8B"),
+                    obfstr!("4C 8B 0D ? ? ? ? 8B 97"),
                     0x03,
                     0x07,
                 ),

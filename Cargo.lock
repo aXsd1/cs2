@@ -832,7 +832,7 @@ dependencies = [
 
 [[package]]
 name = "cs2"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "cs2-schema-cutl",
@@ -850,7 +850,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-cutl"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "raw_struct",
@@ -858,7 +858,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-definition"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "raw_struct",
@@ -868,7 +868,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-dumper"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "clap",
@@ -883,7 +883,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-generated"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "cs2-schema-cutl",
@@ -897,14 +897,14 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-provider"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "log",
 ]
 
 [[package]]
 name = "cs2-schema-provider-impl"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "cs2",
@@ -2926,7 +2926,7 @@ dependencies = [
 
 [[package]]
 name = "radar-client"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2948,7 +2948,7 @@ dependencies = [
 
 [[package]]
 name = "radar-client-standalone"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "clap",
@@ -2967,7 +2967,7 @@ dependencies = [
 
 [[package]]
 name = "radar-server"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2986,7 +2986,7 @@ dependencies = [
 
 [[package]]
 name = "radar-server-standalone"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "clap",
@@ -2998,7 +2998,7 @@ dependencies = [
 
 [[package]]
 name = "radar-shared"
-version = "0.5.14"
+version = "0.5.15"
 dependencies = [
  "anyhow",
  "serde",

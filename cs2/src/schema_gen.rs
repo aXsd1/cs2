@@ -1,4 +1,5 @@
 use std::{
+    self,
     collections::{
         btree_map::Entry,
         BTreeMap,
@@ -510,7 +511,7 @@ fn read_class_binding(
     Ok((class_type_scope_name, definition))
 }
 
-pub fn dump_schema(
+pub fn dump_schema_scopes(
     states: &StateRegistry,
     scope_filter: Option<&[&str]>,
 ) -> anyhow::Result<Vec<SchemaScope>> {

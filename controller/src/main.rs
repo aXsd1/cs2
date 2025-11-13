@@ -8,6 +8,7 @@ use std::{
     fmt::Debug,
     path::PathBuf,
     rc::Rc,
+    str::FromStr,
     sync::{
         atomic::{
             AtomicBool,
@@ -25,6 +26,10 @@ use std::{
 use anyhow::Context;
 use clap::Parser;
 use cs2::{
+    schema_runtime::{
+        self,
+        SetupOptions,
+    },
     CS2Handle,
     ConVars,
     InterfaceError,
@@ -467,28 +472,13 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         );
     }
 
-    {
-        if let Some(file) = &args.schema_file {
-            log::info!(
-                "{} {}",
-                obfstr!("Loading CS2 schema (offsets) from file"),
-                file.display()
-            );
-
-            cs2_schema_provider_impl::setup_schema_from_file(&mut app_state, file)
-                .context("file schema setup")?;
-        } else {
-            log::info!(
-                "{}",
-                obfstr!("Loading CS2 schema (offsets) from CS2 schema system")
-            );
-            cs2_schema_provider_impl::setup_provider(Box::new(
-                cs2_schema_provider_impl::RuntimeSchemaProvider::new(&app_state)
-                    .context("load runtime schema")?,
-            ));
-        }
-        log::info!("CS2 schema (offsets) loaded.");
-    }
+    schema_runtime::setup(
+        &app_state,
+        &SetupOptions {
+            file: args.schema_file.clone(),
+            fscache: Some(PathBuf::from_str("cached_schema")?),
+        },
+    )?;
 
     let cvars = ConVars::new(&app_state).context("cvars")?;
     let cvar_sensitivity = cvars

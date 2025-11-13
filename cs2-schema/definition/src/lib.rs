@@ -1,6 +1,5 @@
 mod definition;
 use std::{
-    collections::BTreeMap,
     fs,
     path::Path,
 };
@@ -18,20 +17,7 @@ mod inheritance;
 pub use inheritance::*;
 
 mod writer;
-use serde::{
-    Deserialize,
-    Serialize,
-};
 pub use writer::*;
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct DumpedSchema {
-    pub cs2_revision: String,
-    pub cs2_build_datetime: String,
-
-    pub resolved_offsets: BTreeMap<String, u64>,
-    pub scopes: Vec<SchemaScope>,
-}
 
 pub fn emit_to_dir(target: impl AsRef<Path>, scopes: &[SchemaScope]) -> anyhow::Result<()> {
     let target = target.as_ref();

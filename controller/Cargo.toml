@@ -21,7 +21,6 @@ chrono-tz = "0.9"
 windows-sys = { version = "0.52.0", features = ["Win32_Security_Authorization"] }
 
 cs2 = { path = "../cs2" }
-cs2-schema-provider-impl = { path = "../cs2-schema/provider-impl" }
 cs2-schema-generated = { path = "../cs2-schema/generated" }
 cs2-schema-cutl = { path = "../cs2-schema/cutl" }
 overlay = { path = "../overlay" }

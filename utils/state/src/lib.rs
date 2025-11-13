@@ -199,7 +199,7 @@ impl StateRegistry {
     }
 
     /// Preset a specific state
-    pub fn set<T: State>(&mut self, value: T, params: T::Parameter) -> anyhow::Result<()> {
+    pub fn set<T: State>(&self, value: T, params: T::Parameter) -> anyhow::Result<()> {
         let (cache_key, index) = self
             .allocator
             .borrow_mut()

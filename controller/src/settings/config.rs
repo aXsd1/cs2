@@ -302,7 +302,7 @@ pub struct AppSettings {
     pub imgui: Option<String>,
 
     // aimbot
-    #[serde(default = "bool_true")]
+    #[serde(default = "bool_false")]
     pub aim_bot_enabled: bool,
 
     #[serde(default = "default_key_aimbot")]

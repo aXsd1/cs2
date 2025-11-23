@@ -622,7 +622,7 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
                     }
                 }
             }
-            thread::sleep(StdDuration::from_secs(30));
+            thread::sleep(StdDuration::from_secs(15));
         }
     });
 

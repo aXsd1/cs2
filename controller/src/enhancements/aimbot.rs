@@ -39,10 +39,10 @@ impl HumanAimbot {
         let target_dx = diff_x + offset_x;
         let target_dy = diff_y + offset_y;
 
-        let smooth = if speed < 1.0 { 1.0 } else { speed };
+        let smooth = if speed > 86.0 { 86.0 } else { speed };
         
-        let move_x = (target_dx / smooth).round() as i32;
-        let move_y = (target_dy / smooth).round() as i32;
+        let move_x = (target_dx / (100 - smooth)).round() as i32;
+        let move_y = (target_dy / (100 - smooth)).round() as i32;
 
         (move_x, move_y)
     }
@@ -75,13 +75,11 @@ impl Enhancement for HumanAimbot {
         
         let local_controller = ctx.states.resolve::<StateLocalPlayerController>(())?;
         
-        // Düzeltme: Burada controller referansı alıyoruz, pawn değil.
         let local_controller_ref = match local_controller.instance.value_reference(memory.view_arc()) {
             Some(lc) => lc,
             None => return Ok(()),
         };
         
-        // Düzeltme: Controller üzerinden takım numarasını pending olarak alıyoruz
         self.local_team_id = local_controller_ref.m_iPendingTeamNum()?;
 
         let screen_center = Vector2::new(view.screen_bounds.x / 2.0, view.screen_bounds.y / 2.0);
@@ -90,7 +88,6 @@ impl Enhancement for HumanAimbot {
         let mut min_dist = settings.aim_bot_fov;
 
         for entity_identity in entities.entities() {
-            // CEntityIdentityEx trait'i eklendiği için bu metodlar artık çalışacak
             let entity_class = class_name_cache.lookup(&entity_identity.entity_class_info()?)?;
             if !entity_class.map(|name| *name == "C_CSPlayerPawn").unwrap_or(false) {
                 continue;

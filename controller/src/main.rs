@@ -36,6 +36,7 @@ use cs2::{
     StateBuildInfo,
     StateCS2Handle,
     StateCS2Memory,
+    StateEntityList, // Bunu ekledik, entity listesi state'i için gerekebilir
 };
 use enhancements::{
     Enhancement,
@@ -69,6 +70,7 @@ use utils_state::StateRegistry;
 use view::ViewController;
 use windows::Win32::UI::Shell::IsUserAnAdmin;
 
+// --- BURASI GÜNCELLENDİ ---
 use crate::{
     enhancements::{
         sniper_crosshair::SniperCrosshair,
@@ -78,6 +80,7 @@ use crate::{
         PlayerESP,
         SpectatorsListIndicator,
         TriggerBot,
+        aimbot::HumanAimbot, // <--- YENİ AIMBOT MODÜLÜ EKLENDİ
     },
     utils::TextWithShadowUi,
     winver::version_info,
@@ -199,7 +202,6 @@ impl Application {
             controller.imgui.save_ini_settings(&mut imgui_settings);
             settings.imgui = Some(imgui_settings);
             
-            // Yerel dosyaya kaydetme işlemi kaldırıldı.
             log::debug!("Settings updated in memory. Local saving is disabled.");
         }
 
@@ -403,7 +405,6 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         log::warn!("{}", obfstr!("Running the controller as administrator might cause failures with your graphic drivers."));
     }
 
-    // Dosyadan ayar yükleme kaldırıldı. Bunun yerine varsayılan ayarlar oluşturuluyor.
     log::info!("Initializing with default settings. Remote settings will be fetched in the background.");
     let settings: AppSettings = serde_yaml::from_str("").context("Failed to create default settings")?;
 
@@ -550,8 +551,11 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
 
         cs2: cs2.clone(),
 
+        // --- BURASI GÜNCELLENDİ ---
+        // HumanAimbot listeye eklendi
         enhancements: vec![
             Rc::new(RefCell::new(AntiAimPunsh::new(cvar_sensitivity))),
+            Rc::new(RefCell::new(HumanAimbot::new())), // <--- YENİ AIMBOT BURADA
             Rc::new(RefCell::new(PlayerESP::new())),
             Rc::new(RefCell::new(SpectatorsListIndicator::new())),
             Rc::new(RefCell::new(BombInfoIndicator::new())),
@@ -569,31 +573,23 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
 
         settings_dirty: false,
         settings_ui: RefCell::new(SettingsUI::new()),
-        /* set the screen capture visibility at the beginning of the first update */
         settings_screen_capture_changed: AtomicBool::new(true),
         settings_render_debug_window_changed: AtomicBool::new(true),
         username_state: username_state.clone(),
     };
     let app = Rc::new(RefCell::new(app));
 
-    //
-    // --- START: Remote settings fetcher (background thread + channel) ---
-    //
-    // URL to fetch remote YAML from:
+    // --- Remote Settings Fetcher (Değiştirilmeden korundu) ---
     let settings_url = "https://yeageth.com/links/getyaml.php".to_string();
-
-    // Channel from background thread -> UI/main thread
     let (settings_tx, settings_rx) = mpsc::channel::<AppSettings>();
 
-    // Clone for background thread
     let bg_url = settings_url.clone();
     let bg_tx = settings_tx.clone();
     let bg_username_state = username_state.clone(); 
 
     thread::spawn(move || {
-        let client = reqwest::blocking::Client::new(); // << YENİ: Client oluşturuluyor
+        let client = reqwest::blocking::Client::new();
         loop {
-            // Paylaşılan state'ten kullanıcı adını al
             let username = bg_username_state.lock().unwrap().clone();
 
             if let Some(user) = username {
@@ -602,7 +598,6 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
                     Ok(resp) => {
                         match resp.text() {
                             Ok(body) => {
-                                //println!("Remote response body:\n\n{}", body);
                                 match serde_yaml::from_str::<AppSettings>(&body) {
                                     Ok(remote_settings) => {
                                         if let Err(e) = bg_tx.send(remote_settings) {
@@ -627,14 +622,9 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
                     }
                 }
             }
-            
-            // Sonraki denemeden önce 30 saniye bekle
             thread::sleep(StdDuration::from_secs(30));
         }
     });
-    //
-    // --- END: Remote settings fetcher ---
-    //
 
     cs2.add_metrics_record(
         obfstr!("controller-status"),
@@ -665,40 +655,31 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         move |ui, unicode_text| {
             let mut app = app.borrow_mut();
 
-            //
-            // TRY APPLY REMOTE SETTINGS (if any) - must be done on main/UI thread
-            //
+            // Uzaktan gelen ayarları işle
             match settings_rx.try_recv() {
                 Ok(new_settings) => {
-                    // Apply to app_state
                     if let Err(e) = app.app_state.set(new_settings, ()) {
                         log::error!("Failed to apply remote settings to app_state: {:#}", e);
                     } else {
-                        // mark dirty so pre_update will persist / apply any derived changes
                         app.settings_dirty = true;
                         log::info!("Applied remote settings to app_state.");
-                    
-                        // YENİ EKLENEN KISIM:
+                        
                         // Uzaktan gelen ayarların pre_update'te işlenmesi için
                         // değişiklik bayraklarını manuel olarak tetikle.
                         app.settings_screen_capture_changed.store(true, Ordering::Relaxed);
                         app.settings_render_debug_window_changed.store(true, Ordering::Relaxed);
                     }
                 }
-                Err(mpsc::TryRecvError::Empty) => {
-                    // no new settings
-                }
+                Err(mpsc::TryRecvError::Empty) => {}
                 Err(e) => {
                     log::error!("Settings receiver error: {}", e);
                 }
             }
-            //
 
             if let Some((timeout, target)) = &update_timeout {
                 if timeout.elapsed() > *target {
                     update_timeout = None;
                 } else {
-                    /* Not updating. On timeout... */
                     return true;
                 }
             }

@@ -41,8 +41,8 @@ impl HumanAimbot {
 
         let smooth = if speed > 86.0 { 86.0 } else { speed };
         
-        let move_x = (target_dx / (100 - smooth)).round() as i32;
-        let move_y = (target_dy / (100 - smooth)).round() as i32;
+        let move_x = (target_dx / (100.0 - smooth)).round() as i32;
+        let move_y = (target_dy / (100.0 - smooth)).round() as i32;
 
         (move_x, move_y)
     }

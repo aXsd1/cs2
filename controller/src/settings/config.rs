@@ -31,6 +31,19 @@ use super::{
     HotKey,
 };
 
+fn default_key_aimbot() -> Option<HotKey> {
+    Some(imgui::Key::X.into())
+}
+fn default_aim_fov() -> f32 {
+    100.0
+}
+fn default_aim_smooth() -> f32 {
+    5.0
+}
+fn default_curve_intensity() -> f32 {
+    0.4
+}
+
 fn bool_true() -> bool {
     true
 }
@@ -287,6 +300,22 @@ pub struct AppSettings {
 
     #[serde(default)]
     pub imgui: Option<String>,
+
+    // aimbot
+    #[serde(default = "bool_false")]
+    pub aim_bot_enabled: bool,
+
+    #[serde(default = "default_key_aimbot")]
+    pub aim_bot_key: Option<HotKey>,
+
+    #[serde(default = "default_aim_fov")]
+    pub aim_bot_fov: f32,
+
+    #[serde(default = "default_aim_smooth")]
+    pub aim_bot_smooth: f32,
+
+    #[serde(default = "default_curve_intensity")]
+    pub aim_bot_curve: f32,
 }
 
 impl State for AppSettings {

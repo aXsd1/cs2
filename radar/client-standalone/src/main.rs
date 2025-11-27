@@ -34,7 +34,7 @@ mod arch;
 struct Args {
     /// Target server address used to publish the web radar.
     /// Use ws://127.0.0.1:7229/publish for local development.
-    #[arg(short, long, default_value = "wss://radar.valth.run/publish")]
+    #[arg(short, long, default_value = "ws://127.0.0.1:7229/publis")]
     publish_url: String,
 
     /// Load the CS2 schema (offsets) from a file

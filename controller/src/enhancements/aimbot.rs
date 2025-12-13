@@ -39,7 +39,7 @@ impl HumanAimbot {
         let target_dx = diff_x + offset_x;
         let target_dy = diff_y + offset_y;
 
-        let smooth_factor = if speed > 99.0 { 99.0 } else { speed };
+        let smooth_factor = if speed > 85.0 { 85.0 } else { speed };
         let divisor = 100.0 - smooth_factor;
         
         let raw_move_x = target_dx / divisor;
@@ -164,10 +164,24 @@ impl Enhancement for HumanAimbot {
 
     fn render(
         &self,
-        _states: &utils_state::StateRegistry,
-        _ui: &imgui::Ui,
+        states: &utils_state::StateRegistry,
+        ui: &imgui::Ui,
         _unicode_text: &UnicodeTextRenderer,
     ) -> anyhow::Result<()> {
+        let settings = states.resolve::<AppSettings>(())?;
+
+        // Aimbot aktifse VE fov çizimi aktifse
+        if settings.aim_bot_enabled && settings.aim_bot_draw_fov {
+            let draw_list = ui.get_background_draw_list();
+            let display_size = ui.io().display_size;
+            let center = [display_size[0] / 2.0, display_size[1] / 2.0];
+
+            // Çemberi çiz (Renk: Beyaz [1.0, 1.0, 1.0, 1.0])
+            draw_list
+                .add_circle(center, settings.aim_bot_fov, [1.0, 1.0, 1.0, 1.0])
+                .build();
+        }
+
         Ok(())
     }
 }

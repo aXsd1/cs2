@@ -305,6 +305,9 @@ pub struct AppSettings {
     #[serde(default = "bool_false")]
     pub aim_bot_enabled: bool,
 
+    #[serde(default = "bool_false")]
+    pub aim_bot_draw_fov: bool,
+
     #[serde(default = "default_key_aimbot")]
     pub aim_bot_key: Option<HotKey>,
 

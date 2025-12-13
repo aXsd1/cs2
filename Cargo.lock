@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "Yeageth"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "chrono",
@@ -13,7 +13,6 @@ dependencies = [
  "cs2",
  "cs2-schema-cutl",
  "cs2-schema-generated",
- "cs2-schema-provider-impl",
  "env_logger",
  "imgui",
  "libloading",
@@ -832,25 +831,29 @@ dependencies = [
 
 [[package]]
 name = "cs2"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "cs2-schema-cutl",
  "cs2-schema-definition",
  "cs2-schema-generated",
+ "cs2-schema-provider",
  "env_logger",
+ "hex",
  "log",
  "nalgebra",
  "obfstr",
  "raw_struct",
+ "serde",
  "serde_json",
+ "sha1",
  "utils-state",
  "vtd-libum",
 ]
 
 [[package]]
 name = "cs2-schema-cutl"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "raw_struct",
@@ -858,7 +861,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-definition"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "raw_struct",
@@ -868,7 +871,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-dumper"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "clap",
@@ -883,7 +886,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-generated"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "cs2-schema-cutl",
@@ -897,25 +900,9 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-provider"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "log",
-]
-
-[[package]]
-name = "cs2-schema-provider-impl"
-version = "0.5.15"
-dependencies = [
- "anyhow",
- "cs2",
- "cs2-schema-cutl",
- "cs2-schema-definition",
- "cs2-schema-provider",
- "log",
- "raw_struct",
- "serde",
- "serde_json",
- "utils-state",
 ]
 
 [[package]]
@@ -2910,7 +2897,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.8",
+ "socket2 0.6.0",
  "tracing",
  "windows-sys 0.59.0",
 ]
@@ -2926,7 +2913,7 @@ dependencies = [
 
 [[package]]
 name = "radar-client"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2948,12 +2935,11 @@ dependencies = [
 
 [[package]]
 name = "radar-client-standalone"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "clap",
  "cs2",
- "cs2-schema-provider-impl",
  "env_logger",
  "log",
  "obfstr",
@@ -2967,7 +2953,7 @@ dependencies = [
 
 [[package]]
 name = "radar-server"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2986,7 +2972,7 @@ dependencies = [
 
 [[package]]
 name = "radar-server-standalone"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "clap",
@@ -2998,7 +2984,7 @@ dependencies = [
 
 [[package]]
 name = "radar-shared"
-version = "0.5.15"
+version = "0.5.16"
 dependencies = [
  "anyhow",
  "serde",
@@ -3412,18 +3398,28 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.216"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b9781016e935a97e8beecf0c933758c97a5520d32930e460142b4cd80c6338e"
+checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
+dependencies = [
+ "serde_core",
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_core"
+version = "1.0.228"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.216"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46f859dbbf73865c6627ed570e78961cd3ac92407a2d117204c49232485da55e"
+checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",

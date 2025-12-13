@@ -40,7 +40,8 @@ mod spectators_list;
 pub use spectators_list::*;
 
 mod aim;
-pub use aim::*;
+pub mod aimbot;
+pub use aim::*; 
 
 mod grenade_helper;
 pub use grenade_helper::*;

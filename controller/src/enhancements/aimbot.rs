@@ -39,10 +39,25 @@ impl HumanAimbot {
         let target_dx = diff_x + offset_x;
         let target_dy = diff_y + offset_y;
 
-        let smooth = if speed > 86.0 { 86.0 } else { speed };
+        let smooth_factor = if speed > 99.0 { 99.0 } else { speed };
+        let divisor = 100.0 - smooth_factor;
         
-        let move_x = (target_dx / (100.0 - smooth)).round() as i32;
-        let move_y = (target_dy / (100.0 - smooth)).round() as i32;
+        let raw_move_x = target_dx / divisor;
+        let raw_move_y = target_dy / divisor;
+
+        // X ekseni
+        let move_x = if raw_move_x.abs() < 1.0 && raw_move_x.abs() > 0.05 {
+            if raw_move_x > 0.0 { 1 } else { -1 }
+        } else {
+            raw_move_x.round() as i32
+        };
+
+        // Y ekseni
+        let move_y = if raw_move_y.abs() < 1.0 && raw_move_y.abs() > 0.05 {
+            if raw_move_y > 0.0 { 1 } else { -1 }
+        } else {
+            raw_move_y.round() as i32
+        };
 
         (move_x, move_y)
     }
@@ -52,7 +67,6 @@ impl Enhancement for HumanAimbot {
     fn update(&mut self, ctx: &crate::UpdateContext) -> anyhow::Result<()> {
         let settings = ctx.states.resolve::<AppSettings>(())?;
 
-        // Config.rs güncellendikten sonra bu alanlar hata vermeyecek
         if !settings.aim_bot_enabled {
             return Ok(());
         }

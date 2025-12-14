@@ -54,6 +54,8 @@ pub struct StatePawnInfo {
     pub player_is_scoped: bool,
     pub player_flashtime: f32,
 
+    pub spotted_by_mask: u64, // m_bSpottedByMask gorunur mu ?
+
     pub player_has_flash: u32,
     pub player_has_smoke: bool,
     pub player_has_hegrenade: bool,
@@ -97,6 +99,12 @@ impl State for StatePawnInfo {
         } else {
             None
         };
+
+        let spotted_by_mask_arr = player_pawn
+            .m_entitySpottedState()?
+            .m_bSpottedByMask()?;
+
+        let spotted_by_mask = (spotted_by_mask_arr[0] as u64) | ((spotted_by_mask_arr[1] as u64) << 32);
 
         let player_has_defuser = player_pawn
             .m_pItemServices()?
@@ -207,7 +215,9 @@ impl State for StatePawnInfo {
             weapon_reserve_ammo,
             player_is_scoped,
             player_flashtime,
-
+            
+            spotted_by_mask,
+            
             player_has_flash,
             player_has_smoke,
             player_has_hegrenade,

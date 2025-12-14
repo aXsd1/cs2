@@ -9,6 +9,7 @@ use cs2::{
 };
 use overlay::UnicodeTextRenderer;
 use nalgebra::Vector2;
+use cs2_schema_generated::cs2::client::CEntityInstance;
 
 use super::Enhancement;
 use crate::{
@@ -96,6 +97,13 @@ impl Enhancement for HumanAimbot {
         
         self.local_team_id = local_controller_ref.m_iPendingTeamNum()?;
 
+        let local_player_index = local_controller_ref
+            .m_pEntity()?
+            .value_reference(memory.view_arc())
+            .context("m_pEntity nullptr")?
+            .handle::<()>()?
+            .get_entity_index();
+
         let screen_center = Vector2::new(view.screen_bounds.x / 2.0, view.screen_bounds.y / 2.0);
         
         let mut best_target_pos: Option<Vector2<f32>> = None;
@@ -117,8 +125,13 @@ impl Enhancement for HumanAimbot {
             if pawn_info.team_id == self.local_team_id {
                 continue;
             }
+
             if pawn_info.player_health <= 0 {
                 continue;
+            }
+
+            if (pawn_info.spotted_by_mask & (1 << (local_player_index - 1))) == 0 {
+                 continue;
             }
 
             let pawn_model = ctx.states.resolve::<StatePawnModelInfo>(entity_identity.handle()?)?;

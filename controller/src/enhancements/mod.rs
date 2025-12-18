@@ -41,7 +41,9 @@ pub use spectators_list::*;
 
 mod aim;
 pub mod aimbot;
-pub use aim::*; 
+pub use aim::*;
+
+pub mod hitmarker;
 
 mod grenade_helper;
 pub use grenade_helper::*;

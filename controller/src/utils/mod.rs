@@ -17,6 +17,8 @@ pub use self::imgui::*;
 mod console_io;
 pub use console_io::*;
 
+pub mod audio;
+
 #[allow(unused)]
 pub fn open_url(url: &str) {
     unsafe {

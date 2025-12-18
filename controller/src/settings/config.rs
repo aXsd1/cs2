@@ -101,6 +101,11 @@ fn default_esp_configs_enabled() -> BTreeMap<String, bool> {
     result
 }
 
+
+fn default_hitmarker_type() -> HitMarkerType {
+    HitMarkerType::Off
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
 pub enum KeyToggleMode {
     AlwaysOn,
@@ -109,6 +114,18 @@ pub enum KeyToggleMode {
     TriggerInverted,
     Off,
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, PartialOrd)]
+pub enum HitMarkerType {
+    //Battlefield,
+    //Cod,
+    Rust,
+    Pat,
+    Serdar,
+    Off,
+}
+
+
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum GrenadeType {
@@ -319,6 +336,16 @@ pub struct AppSettings {
 
     #[serde(default = "default_curve_intensity")]
     pub aim_bot_curve: f32,
+
+    // hitmarker
+    #[serde(default = "bool_false")]
+    pub hitmarker_enabled: bool,
+
+    #[serde(default = "default_color::<255, 255, 255, 255>")]
+    pub hitmarker_color: Color,
+
+    #[serde(default = "default_hitmarker_type")]
+    pub hitmarker_type: HitMarkerType,
 }
 
 impl State for AppSettings {

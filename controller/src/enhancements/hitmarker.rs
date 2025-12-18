@@ -89,7 +89,7 @@ impl Enhancement for HitmarkerPlugin {
             let is_hs = current_headshots > self.prev_headshots;
 
             // KONSOLA YAZDIR: Vuruş algılandı mı?
-            println!(">> VURUS ALGILANDI! Hasar: {}, HS: {}", damage_diff, is_hs);
+            //println!(">> VURUS ALGILANDI! Hasar: {}, HS: {}", damage_diff, is_hs);
 
             self.logs.push(HitLog {
                 damage: damage_diff,
@@ -99,7 +99,7 @@ impl Enhancement for HitmarkerPlugin {
             });
 
             if settings.hitmarker_type != HitMarkerType::Off {
-                println!(">> Ses çalınıyor: {:?}", settings.hitmarker_type); // Ses tipi ne?
+                //println!(">> Ses çalınıyor: {:?}", settings.hitmarker_type); // Ses tipi ne?
                 match settings.hitmarker_type {
                     HitMarkerType::Rust => {
                         audio::play_sound_from_bytes(include_bytes!("../../resources/rust.wav"));

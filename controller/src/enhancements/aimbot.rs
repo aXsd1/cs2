@@ -1,7 +1,7 @@
 use std::time::Instant;
+use std::ffi::c_void;
 use anyhow::Context;
 use cs2::{
-    // CEntityIdentityEx trait'ini ekledik (entity_class_info ve handle için gerekli)
     CEntityIdentityEx, 
     CS2Model, ClassNameCache, MouseState, PlayerPawnState,
     StateCS2Memory, StateEntityList, StateLocalPlayerController,
@@ -11,22 +11,93 @@ use overlay::UnicodeTextRenderer;
 use nalgebra::Vector2;
 use cs2_schema_generated::cs2::client::CEntityInstance;
 
+
+use windows::{
+    core::PCWSTR,
+    Win32::Foundation::{CloseHandle, HANDLE},
+    Win32::System::Memory::{
+        MapViewOfFile, OpenFileMappingW, FILE_MAP_READ, UnmapViewOfFile,
+        MEMORY_MAPPED_VIEW_ADDRESS
+    },
+};
+
 use super::Enhancement;
 use crate::{
     settings::AppSettings,
     view::ViewController,
 };
 
+#[repr(C)]
+struct RecoilSharedMemory {
+    recoil_offset_x: i32,
+    recoil_offset_y: i32,
+}
+
 pub struct HumanAimbot {
     start_time: Instant,
     local_team_id: u8,
+    
+    shm_handle: HANDLE,
+    shm_ptr: *const RecoilSharedMemory,
 }
+
+unsafe impl Send for HumanAimbot {}
+unsafe impl Sync for HumanAimbot {}
 
 impl HumanAimbot {
     pub fn new() -> Self {
-        Self {
+        let mut aimbot = Self {
             start_time: Instant::now(),
             local_team_id: 0,
+            shm_handle: HANDLE(0), // Null handle
+            shm_ptr: std::ptr::null(),
+        };
+
+        aimbot.connect_shared_memory();
+        aimbot
+    }
+
+    fn connect_shared_memory(&mut self) {
+        unsafe {
+            let shm_name_str = "Global\\GodRecoilOffsets";
+            let mut shm_name_wide: Vec<u16> = shm_name_str.encode_utf16().collect();
+            shm_name_wide.push(0);
+
+            println!("[AIMBOT] Connecting to shared memory: {}", shm_name_str);
+
+            let handle = OpenFileMappingW(
+                FILE_MAP_READ.0, 
+                false, 
+                PCWSTR(shm_name_wide.as_ptr())
+            );
+
+            if let Ok(h) = handle {
+                if !h.is_invalid() && h.0 != 0 {
+                    self.shm_handle = h;
+                    
+                    let mapped_view = MapViewOfFile(
+                        h, 
+                        FILE_MAP_READ, 
+                        0, 
+                        0, 
+                        std::mem::size_of::<RecoilSharedMemory>()
+                    );
+
+                    // .Value ile asıl pointer'a erişiyoruz
+                    if !mapped_view.Value.is_null() {
+                        self.shm_ptr = mapped_view.Value as *const RecoilSharedMemory;
+                        println!("[AIMBOT] Connected to shared memory! Ptr: {:?}", self.shm_ptr);
+                    } else {
+                        eprintln!("[AIMBOT] MapViewOfFile failed.");
+                        let _ = CloseHandle(h);
+                        self.shm_handle = HANDLE(0);
+                    }
+                } else {
+                    eprintln!("[AIMBOT] Can't open shared memory handle.");
+                }
+            } else {
+                eprintln!("[AIMBOT] Can't open shared memory handle.");
+            }
         }
     }
 
@@ -46,14 +117,12 @@ impl HumanAimbot {
         let raw_move_x = target_dx / divisor;
         let raw_move_y = target_dy / divisor;
 
-        // X ekseni
         let move_x = if raw_move_x.abs() < 1.0 && raw_move_x.abs() > 0.05 {
             if raw_move_x > 0.0 { 1 } else { -1 }
         } else {
             raw_move_x.round() as i32
         };
 
-        // Y ekseni
         let move_y = if raw_move_y.abs() < 1.0 && raw_move_y.abs() > 0.05 {
             if raw_move_y > 0.0 { 1 } else { -1 }
         } else {
@@ -61,6 +130,23 @@ impl HumanAimbot {
         };
 
         (move_x, move_y)
+    }
+}
+
+impl Drop for HumanAimbot {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.shm_ptr.is_null() {
+
+                let address_struct = MEMORY_MAPPED_VIEW_ADDRESS { 
+                    Value: self.shm_ptr as *mut c_void 
+                };
+                let _ = UnmapViewOfFile(address_struct);
+            }
+            if !self.shm_handle.is_invalid() && self.shm_handle.0 != 0 {
+                let _ = CloseHandle(self.shm_handle);
+            }
+        }
     }
 }
 
@@ -82,6 +168,10 @@ impl Enhancement for HumanAimbot {
             self.start_time = Instant::now();
             return Ok(());
         }
+
+        //if self.shm_ptr.is_null() {
+        //     self.connect_shared_memory();
+        //}
 
         let memory = ctx.states.resolve::<StateCS2Memory>(())?;
         let view = ctx.states.resolve::<ViewController>(())?;
@@ -140,7 +230,20 @@ impl Enhancement for HumanAimbot {
             if let Some(head_bone_index) = entry_model.bones.iter().position(|bone| bone.name == "head_0") {
                  if let Some(head_state) = pawn_model.bone_states.get(head_bone_index) {
                     if let Some(screen_pos_mint) = view.world_to_screen(&head_state.position, true) {
-                        let screen_pos = Vector2::new(screen_pos_mint.x, screen_pos_mint.y);
+                        
+                        let mut final_x = screen_pos_mint.x;
+                        let mut final_y = screen_pos_mint.y;
+
+                        // Recoil Ekleme
+                        if !self.shm_ptr.is_null() {
+                            unsafe {
+                                let recoil_data = &*self.shm_ptr;
+                                final_y += (recoil_data.recoil_offset_y as f32) * 0.75;
+                                final_x += (recoil_data.recoil_offset_x as f32) * 0.75;
+                            }
+                        }
+
+                        let screen_pos = Vector2::new(final_x, final_y);
                         let dist = (screen_pos - screen_center).norm();
 
                         if dist < min_dist {
@@ -183,13 +286,11 @@ impl Enhancement for HumanAimbot {
     ) -> anyhow::Result<()> {
         let settings = states.resolve::<AppSettings>(())?;
 
-        // Aimbot aktifse VE fov çizimi aktifse
         if settings.aim_bot_enabled && settings.aim_bot_draw_fov {
             let draw_list = ui.get_background_draw_list();
             let display_size = ui.io().display_size;
             let center = [display_size[0] / 2.0, display_size[1] / 2.0];
 
-            // Çemberi çiz (Renk: Beyaz [1.0, 1.0, 1.0, 1.0])
             draw_list
                 .add_circle(center, settings.aim_bot_fov, [1.0, 1.0, 1.0, 1.0])
                 .build();

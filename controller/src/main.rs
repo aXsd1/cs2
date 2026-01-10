@@ -82,7 +82,9 @@ use crate::{
         TriggerBot,
         
         aimbot::HumanAimbot,
-        hitmarker::HitmarkerPlugin
+        hitmarker::HitmarkerPlugin,
+        data_collector::DataCollector,
+        shared_mem::SharedMemoryWriter,
     },
     utils::TextWithShadowUi,
     winver::version_info,
@@ -566,6 +568,7 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
             Rc::new(RefCell::new(GrenadeHelper::new())),
             Rc::new(RefCell::new(SniperCrosshair::new())),
             Rc::new(RefCell::new(SharedMemoryWriter::new())),
+            Rc::new(RefCell::new(DataCollector::new())),
         ],
 
         last_total_read_calls: 0,

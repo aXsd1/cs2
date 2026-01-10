@@ -50,6 +50,7 @@ pub use grenade_helper::*;
 
 pub mod sniper_crosshair;
 pub mod shared_mem;
+pub mod data_collector;
 
 use utils_state::StateRegistry;
 

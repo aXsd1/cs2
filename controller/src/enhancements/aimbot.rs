@@ -169,6 +169,7 @@ impl Enhancement for HumanAimbot {
             return Ok(());
         }
 
+        // Try again if not connected godrecoil
         //if self.shm_ptr.is_null() {
         //     self.connect_shared_memory();
         //}

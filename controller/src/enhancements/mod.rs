@@ -49,6 +49,7 @@ mod grenade_helper;
 pub use grenade_helper::*;
 
 pub mod sniper_crosshair;
+pub mod shared_mem;
 
 use utils_state::StateRegistry;
 

@@ -29,6 +29,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 const CAPTURE_SIZE: i32 = 600;
 const CAPTURE_COOLDOWN_MS: u64 = 1000; // 1 second cooldown between captures
+// Head box size is now calculated dynamically based on body height
 
 pub struct DataCollector {
     local_team_id: u8,
@@ -189,18 +190,19 @@ impl DataCollector {
         pixels: Vec<u8>,
         width: u32,
         height: u32,
-        enemy_boxes: &Vec<(i32, i32, i32, i32)>,
+        enemy_boxes: &Vec<(u8, i32, i32, i32, i32, i32, i32, i32, i32)>,  // (team_id, body_minx, body_miny, body_maxx, body_maxy, head_minx, head_miny, head_maxx, head_maxy)
     ) -> anyhow::Result<()> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
 
-        // Build filename with all enemy coordinates
-        // Format: {timestamp}_{count}_{minx1}_{miny1}_{maxx1}_{maxy1}_{minx2}_{miny2}_{maxx2}_{maxy2}...png
-        let mut filename = format!("{}_{}", timestamp, enemy_boxes.len());
-        for (min_x, min_y, max_x, max_y) in enemy_boxes {
-            filename.push_str(&format!("_{}_{}_{}_{}" , min_x, min_y, max_x, max_y));
+        // Build filename with team_id, body and head bounding boxes for each enemy
+        // Format: {timestamp}_{team_id}_{body_minx}_{body_miny}_{body_maxx}_{body_maxy}_{head_minx}_{head_miny}_{head_maxx}_{head_maxy}_{next_enemy...}.png
+        // team_id: 2 = T (Terrorist), 3 = CT (Counter-Terrorist)
+        let mut filename = format!("{}", timestamp);
+        for (team_id, body_min_x, body_min_y, body_max_x, body_max_y, head_min_x, head_min_y, head_max_x, head_max_y) in enemy_boxes {
+            filename.push_str(&format!("_{}_{}_{}_{}_{}_{}_{}_{}_{}" , team_id, body_min_x, body_min_y, body_max_x, body_max_y, head_min_x, head_min_y, head_max_x, head_max_y));
         }
         filename.push_str(".png");
 
@@ -256,7 +258,8 @@ impl Enhancement for DataCollector {
         let capture_bottom = screen_center_y + half_size;
 
         // Collect all enemies within the capture area
-        let mut enemy_boxes: Vec<(i32, i32, i32, i32)> = Vec::new();
+        // (team_id, body_minx, body_miny, body_maxx, body_maxy, head_minx, head_miny, head_maxx, head_maxy)
+        let mut enemy_boxes: Vec<(u8, i32, i32, i32, i32, i32, i32, i32, i32)> = Vec::new();
 
         for entity_identity in entities.entities() {
             let entity_class = class_name_cache.lookup(&entity_identity.entity_class_info()?)?;
@@ -309,7 +312,31 @@ impl Enhancement for DataCollector {
                 let local_max_x = ((vmax.x - capture_left).max(0.0) as i32).min(CAPTURE_SIZE);
                 let local_max_y = ((vmax.y - capture_top).max(0.0) as i32).min(CAPTURE_SIZE);
 
-                enemy_boxes.push((local_min_x, local_min_y, local_max_x, local_max_y));
+                // Get head bounding box (like aimbot does, but with box instead of point)
+                // Head box size is dynamic based on body height (approximately 15% of body height)
+                let body_height = local_max_y - local_min_y;
+                let head_half_size = ((body_height as f32 * 0.15) as i32).max(4).min(30);
+                
+                let mut head_min_x = 0i32;
+                let mut head_min_y = 0i32;
+                let mut head_max_x = 0i32;
+                let mut head_max_y = 0i32;
+                if let Some(head_bone_index) = entry_model.bones.iter().position(|bone| bone.name == "head_0") {
+                    if let Some(head_state) = pawn_model.bone_states.get(head_bone_index) {
+                        if let Some(head_screen) = view.world_to_screen(&head_state.position, true) {
+                            // Convert head center to local coords and create bounding box
+                            let head_center_x = ((head_screen.x - capture_left).max(0.0) as i32).min(CAPTURE_SIZE);
+                            let head_center_y = ((head_screen.y - capture_top).max(0.0) as i32).min(CAPTURE_SIZE);
+                            
+                            head_min_x = (head_center_x - head_half_size).max(0).min(CAPTURE_SIZE);
+                            head_min_y = (head_center_y - head_half_size).max(0).min(CAPTURE_SIZE);
+                            head_max_x = (head_center_x + head_half_size).max(0).min(CAPTURE_SIZE);
+                            head_max_y = (head_center_y + head_half_size).max(0).min(CAPTURE_SIZE);
+                        }
+                    }
+                }
+
+                enemy_boxes.push((pawn_info.team_id, local_min_x, local_min_y, local_max_x, local_max_y, head_min_x, head_min_y, head_max_x, head_max_y));
             }
         }
 

@@ -392,13 +392,13 @@ fn perform_full_login_check(username: &str, password: &str) -> Result<String, St
     if parsed.resultCode == local_code {
         Ok("Login Successful!".to_string())
     } else {
-        Err(match parsed.resultCode.as_str() {
-            "1" => "Subscription ended".to_string(),
-            "2" => "You don't have access to this product".to_string(),
-            "3" => "HWID didn't match".to_string(),
-            "4" => "User not found".to_string(),
-            "5" => "Wrong password".to_string(),
-            _   => "Login failed: Unknown error".to_string(),
+        Err(match parsed.resultCode.parse::<u32>().unwrap_or(0) {
+            1 => "Subscription ended".to_string(),
+            2 => "You don't have access to this product".to_string(),
+            3 => "HWID didn't match".to_string(),
+            4 => "User not found".to_string(),
+            5 => "Wrong password".to_string(),
+            _ => "Login failed: Unknown error".to_string(),
         })
     }
 }

@@ -82,7 +82,8 @@ use crate::{
         TriggerBot,
         
         aimbot::HumanAimbot,
-        hitmarker::HitmarkerPlugin
+        hitmarker::HitmarkerPlugin,
+        shared_mem::SharedMemoryWriter,
     },
     utils::TextWithShadowUi,
     winver::version_info,

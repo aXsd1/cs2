@@ -6,7 +6,7 @@ members = [
     "cs2-schema/definition",
     "cs2-schema/cutl",
     "cs2-schema/generated",
-    "cs2-schema/dumper",
+    # "cs2-schema/dumper",  # Disabled - create_dump function not available
     "cs2-schema/provider",
 
     "radar/client",

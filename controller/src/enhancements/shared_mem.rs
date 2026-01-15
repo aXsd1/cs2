@@ -25,8 +25,9 @@ impl SharedMemoryWriter {
         // Paylaşılan belleği oluştur veya varsa bağlan
         let shmem = match ShmemConf::new().size(4096).os_id("yeageth_weapon_data").create() {
             Ok(m) => m,
-            Err(ShmemError::LinkExists) => ShmemConf::new().os_id("yeageth_weapon_data").open().expect("Failed to open shared memory"),
-            Err(e) => panic!("Shared memory error: {}", e),
+            Err(_) => {
+                ShmemConf::new().os_id("yeageth_weapon_data").open().expect("Failed to open shared memory after creation failed")
+            }
         };
 
         Self {

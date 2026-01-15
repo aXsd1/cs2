@@ -291,7 +291,7 @@ fn get_hwid() -> Result<String, String> {
 /// Tüm karmaşık login mantığını yürüten ana fonksiyon.
 fn perform_full_login_check(username: &str, password: &str) -> Result<String, String> {
 
-    const PROGRAM_CSESP_VERSION: &str = "1.1.3";
+    const PROGRAM_CSESP_VERSION: &str = "1.1.4";
 
     //let client = reqwest::blocking::Client::new(); // no await
     //let client = reqwest::blocking::Client::builder()
@@ -308,7 +308,7 @@ fn perform_full_login_check(username: &str, password: &str) -> Result<String, St
     // =================================================================
     // ADIM 2: SUNUCUDAN BİLGİLERİ AL
     // =================================================================
-    let version_info: VersionsResponse = client
+    let response = client
         .get("https://yeageth.com/versions.php")
         .send()
         .map_err(|e| {
@@ -338,8 +338,12 @@ fn perform_full_login_check(username: &str, password: &str) -> Result<String, St
             }
 
             details
-        })?
-        .json()
+        })?;
+
+    let response_text = response.text().map_err(|e| format!("Data Error (reading body): {}", e))?;
+    //println!("DEBUG: Versions Response Body: {}", response_text);
+
+    let version_info: VersionsResponse = serde_json::from_str(&response_text)
         .map_err(|e| format!("Data Error: {}", e))?;
 
     
@@ -383,6 +387,7 @@ fn perform_full_login_check(username: &str, password: &str) -> Result<String, St
     let data: String = response
         .text()
         .map_err(|_| "Invalid response from server".to_string())?;
+    println!("DEBUG: Login Response Body: {}", data);
 
     // JSON parse et
     let parsed: ServerResponse =

@@ -86,8 +86,12 @@ use crate::{
         shared_mem::SharedMemoryWriter,
     },
     utils::TextWithShadowUi,
+
     winver::version_info,
+    network::ws_client,
 };
+
+mod network;
 
 mod dialog;
 mod enhancements;
@@ -584,51 +588,29 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
     let app = Rc::new(RefCell::new(app));
 
     // --- Remote Settings Fetcher (Değiştirilmeden korundu) ---
-    let settings_url = "https://yeageth.com/links/getyaml.php".to_string();
+    // Removed legacy settings fetcher
+    // let settings_url = "https://yeageth.com/links/getyaml.php".to_string();
     let (settings_tx, settings_rx) = mpsc::channel::<AppSettings>();
 
-    let bg_url = settings_url.clone();
+    // let bg_url = settings_url.clone(); deleted
+    // let bg_tx = settings_tx.clone(); handled below
+    // let bg_username_state = username_state.clone(); deleted
+
+    // --- WebSocket Client ---
+    let (ws_cmd_tx, ws_cmd_rx) = tokio::sync::mpsc::channel(32);
+    let auth_status = Arc::new(Mutex::new(None));
+
+    // Configure UI with WS context
+    {
+        let mapp = app.borrow();
+        let mut settings_ui = mapp.settings_ui.borrow_mut();
+        settings_ui.set_ws_context(ws_cmd_tx.clone(), auth_status.clone());
+    }
+
     let bg_tx = settings_tx.clone();
-    let bg_username_state = username_state.clone(); 
+    let bg_auth_status = auth_status.clone();
 
-    thread::spawn(move || {
-        let client = reqwest::blocking::Client::new();
-        loop {
-            let username = bg_username_state.lock().unwrap().clone();
-
-            if let Some(user) = username {
-                let params = [("username", user)];
-                match client.post(&bg_url).form(&params).send() {
-                    Ok(resp) => {
-                        match resp.text() {
-                            Ok(body) => {
-                                match serde_yaml::from_str::<AppSettings>(&body) {
-                                    Ok(remote_settings) => {
-                                        if let Err(e) = bg_tx.send(remote_settings) {
-                                            log::error!("Failed to send settings to main thread: {}", e);
-                                            break;
-                                        } else {
-                                            log::info!("Remote settings fetched and sent for user.");
-                                        }
-                                    }
-                                    Err(e) => {
-                                        log::error!("Failed to parse YAML from remote settings: {:#}", e);
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                log::error!("Failed to read response body from settings URL: {}", e);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("Failed to fetch settings URL: {}", e);
-                    }
-                }
-            }
-            thread::sleep(StdDuration::from_secs(15));
-        }
-    });
+    tokio::spawn(ws_client::run_ws_client(ws_cmd_rx, bg_tx, bg_auth_status));
 
     cs2.add_metrics_record(
         obfstr!("controller-status"),

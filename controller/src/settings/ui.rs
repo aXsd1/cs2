@@ -24,7 +24,8 @@ use anyhow::Context;
 use chrono::{
     Datelike,
     Utc};
-use chrono_tz::Tz;
+
+// use chrono_tz::Tz; removed
 use cs2::{
     StateBuildInfo,
     StateCurrentMap,
@@ -42,9 +43,12 @@ use imgui::{
 };
 use obfstr::obfstr;
 use overlay::UnicodeTextRenderer;
-use reqwest::blocking::Client;
+
+// use reqwest::blocking::Client; removed
 use serde::Deserialize;
 use utils_state::StateRegistry;
+use tokio::sync::mpsc::Sender;
+use crate::network::ws_client::WsCommand;
 
 use super::{
     Color,
@@ -114,20 +118,8 @@ struct LoginState {
 }
 
 // Sunucudan gelen JSON yanıtları için struct'lar
-#[derive(Deserialize)]
-struct VersionsResponse {
-    versions: Versions,
-}
-#[derive(Deserialize)]
-struct Versions {
-    timezone: String,
-    csesp: String,
-}
+// Structs VersionsResponse, Versions, ServerResponse removed as they were only used in removed login logic
 
-#[derive(Deserialize)]
-    struct ServerResponse {
-        resultCode: String,
-    }
 
 impl GrenadeSettingsTarget {
     pub fn ui_token(&self) -> Cow<'static, str> {
@@ -202,14 +194,15 @@ pub struct SettingsUI {
 
     grenade_helper_pending_target: Option<GrenadeSettingsTarget>,
     grenade_helper_pending_selected_id: Option<usize>,
+
+    ws_tx: Option<Sender<WsCommand>>,
 }
 
 // =================================================================
 // YARDIMCI FONKSİYONLAR (HWID & LOGIN MANTIĞI)
 // =================================================================
 
-/// Sadece Windows üzerinde derlenir ve klasör sahibinin SID'sini HWID olarak alır.
-#[cfg(windows)]
+// get_hwid retained but logic simplifies usage in render
 fn get_hwid() -> Result<String, String> {
     use std::{ffi::c_void, ptr};
     use windows_sys::Win32::{
@@ -217,9 +210,9 @@ fn get_hwid() -> Result<String, String> {
         Security::GetFileSecurityW,
         Security::GetSecurityDescriptorOwner,
         Security::OWNER_SECURITY_INFORMATION,
-        Security::Authorization::ConvertSidToStringSidW, // 🔧 Doğru modül!
+        Security::Authorization::ConvertSidToStringSidW,
     };
-    use widestring::U16CStr; // 🔧 U16Str değil, U16CStr
+    use widestring::U16CStr;
 
     unsafe {
         let path: Vec<u16> = ".".encode_utf16().chain(std::iter::once(0)).collect();
@@ -288,125 +281,8 @@ fn get_hwid() -> Result<String, String> {
 }
 
 
-/// Tüm karmaşık login mantığını yürüten ana fonksiyon.
-fn perform_full_login_check(username: &str, password: &str) -> Result<String, String> {
+// legacy perform_full_login_check removed
 
-    const PROGRAM_CSESP_VERSION: &str = "1.1.4";
-
-    //let client = reqwest::blocking::Client::new(); // no await
-    //let client = reqwest::blocking::Client::builder()
-    //    .danger_accept_invalid_certs(true)  // sadece test için
-    //    .build()
-    //    .unwrap();
-
-    let client = Client::builder()
-        .use_rustls_tls()
-        //.danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("Client build failed: {}", e))?;
-
-    // =================================================================
-    // ADIM 2: SUNUCUDAN BİLGİLERİ AL
-    // =================================================================
-    let response = client
-        .get("https://yeageth.com/versions.php")
-        .send()
-        .map_err(|e| {
-            use std::fmt::Write;
-            let mut details = String::new();
-
-            let _ = write!(&mut details, "Network Error: {}\n\nDebug: {:?}\n", e, e);
-
-            if e.is_connect() {
-                let _ = write!(&mut details, "Hint: connection error (is_connect = true)\n");
-            }
-            if e.is_timeout() {
-                let _ = write!(&mut details, "Hint: timeout (is_timeout = true)\n");
-            }
-            if let Some(status) = e.status() {
-                let _ = write!(&mut details, "HTTP status: {}\n", status);
-            }
-            if let Some(url) = e.url() {
-                let _ = write!(&mut details, "URL: {}\n", url);
-            }
-
-            let mut src = e.source();
-            while let Some(s) = src {
-                let _ = write!(&mut details, "Caused by: {}\n", s);
-                println!("Caused by: {}", s);
-                src = s.source();
-            }
-
-            details
-        })?;
-
-    let response_text = response.text().map_err(|e| format!("Data Error (reading body): {}", e))?;
-    //println!("DEBUG: Versions Response Body: {}", response_text);
-
-    let version_info: VersionsResponse = serde_json::from_str(&response_text)
-        .map_err(|e| format!("Data Error: {}", e))?;
-
-    
-    // Sunucudan gelen versiyon bilgilerini kontrol et
-    if version_info.versions.csesp != PROGRAM_CSESP_VERSION {
-        // versiyon uyumsuz
-        return Err("Application is not up to date. Please redownload.".to_string());
-    }
-
-    // =================================================================
-    // ADIM 4: YEREL DOĞRULAMA KODUNU HESAPLA
-    // =================================================================
-    let timezone: Tz = version_info.versions.timezone.parse()
-        .map_err(|_| "Invalid timezone from server".to_string())?;
-
-    let now = Utc::now().with_timezone(&timezone);
-    let local_code: String = (now.year() as u32 * 365 + now.month() * 30 + now.day())
-        .saturating_mul(1344)
-        .to_string()
-        .chars()
-        .map(|c| if c.to_digit(10).unwrap_or(0) % 2 == 0 { '0' } else { '1' })
-        .collect();
-
-    // =================================================================
-    // ADIM 5: DİĞER KONTROLLER (HWID VE LOGIN)
-    // =================================================================
-    let hwid = get_hwid()?;
-
-    let params = [("username", username), ("password", password), ("hwid", &hwid),];
-
-    let response = client
-        .post("https://yeageth.com/usercheck_csesp.php")
-        .form(&params)
-        .send()
-        .map_err(|e| format!("Login request failed: {}", e))?;
-
-    if !response.status().is_success() {
-        return Err(format!("Server returned error: {}", response.status()));
-    }
-
-    let data: String = response
-        .text()
-        .map_err(|_| "Invalid response from server".to_string())?;
-    println!("DEBUG: Login Response Body: {}", data);
-
-    // JSON parse et
-    let parsed: ServerResponse =
-        serde_json::from_str(&data).map_err(|e| format!("Failed to parse JSON: {}", e))?;
-
-    // Karşılaştırma
-    if parsed.resultCode == local_code {
-        Ok("Login Successful!".to_string())
-    } else {
-        Err(match parsed.resultCode.parse::<u32>().unwrap_or(0) {
-            1 => "Subscription ended".to_string(),
-            2 => "You don't have access to this product".to_string(),
-            3 => "HWID didn't match".to_string(),
-            4 => "User not found".to_string(),
-            5 => "Wrong password".to_string(),
-            _ => "Login failed: Unknown error".to_string(),
-        })
-    }
-}
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 impl SettingsUI {
@@ -434,7 +310,13 @@ impl SettingsUI {
 
             grenade_helper_pending_target: None,
             grenade_helper_pending_selected_id: None,
+            ws_tx: None,
         }
+    }
+
+    pub fn set_ws_context(&mut self, tx: Sender<WsCommand>, auth_handle: Arc<Mutex<Option<Result<String, String>>>>) {
+        self.ws_tx = Some(tx);
+        self.login_state.result_handle = auth_handle;
     }
 
     pub fn render(
@@ -482,10 +364,18 @@ impl SettingsUI {
                     let result_handle = self.login_state.result_handle.clone();
 
                     // Arka planda login işlemini yürüt
-                    thread::spawn(move || {
-                        let outcome = perform_full_login_check(&username, &password);
-                        *result_handle.lock().unwrap() = Some(outcome);
-                    });
+                    // thread::spawn removed for WS
+                    if let Ok(hwid) = get_hwid() {
+                        if let Some(tx) = &self.ws_tx {
+                            let _ = tx.try_send(WsCommand::Login {
+                                username: username.clone(),
+                                password: password.clone(),
+                                hwid: hwid,
+                            });
+                        }
+                    } else {
+                         *self.login_state.result_handle.lock().unwrap() = Some(Err("Failed to get HWID".to_string()));
+                    }
                 }
                 
                 drop(_disable);

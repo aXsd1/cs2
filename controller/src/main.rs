@@ -89,6 +89,8 @@ use crate::{
 
     winver::version_info,
     network::ws_client,
+    network::radar_client::{self, RadarCommand, RadarSessionInfo},
+    enhancements::radar_generator::CS2RadarGenerator,
 };
 
 mod network;
@@ -612,6 +614,15 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
 
     tokio::spawn(ws_client::run_ws_client(ws_cmd_rx, bg_tx, bg_auth_status));
 
+    // --- Radar Publisher ---
+    let (radar_cmd_tx, radar_cmd_rx) = tokio::sync::mpsc::channel::<RadarCommand>(16);
+    let radar_session_info = Arc::new(Mutex::new(RadarSessionInfo::default()));
+    
+    tokio::spawn(radar_client::run_radar_publisher(
+        radar_cmd_rx,
+        radar_session_info.clone(),
+    ));
+
     cs2.add_metrics_record(
         obfstr!("controller-status"),
         &format!(
@@ -680,6 +691,14 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
                     return true;
                 } else {
                     update_fail_count += 1;
+                }
+            } else {
+                // Generate and send radar state if enabled
+                if app.settings().web_radar_enabled {
+                    let generator = CS2RadarGenerator::new(&app.app_state);
+                    if let Ok(state) = generator.generate_state() {
+                        let _ = radar_cmd_tx.try_send(RadarCommand::UpdateState(state));
+                    }
                 }
             }
 

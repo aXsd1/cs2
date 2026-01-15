@@ -22,6 +22,7 @@ dependencies = [
  "nalgebra",
  "obfstr",
  "overlay",
+ "radar-shared",
  "rand",
  "raw_struct",
  "reqwest",

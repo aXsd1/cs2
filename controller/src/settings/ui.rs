@@ -403,7 +403,6 @@ impl SettingsUI {
             });
     }
 
-
     pub fn render_main_ui(
         &mut self,
         app: &Application,

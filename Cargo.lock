@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "Yeageth"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "chrono",
@@ -755,6 +755,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "controller"
+version = "0.5.16"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "cs2",
+ "cs2-schema-cutl",
+ "cs2-schema-generated",
+ "env_logger",
+ "imgui",
+ "libloading",
+ "log",
+ "mint",
+ "nalgebra",
+ "obfstr",
+ "overlay",
+ "rand",
+ "raw_struct",
+ "rfd",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "serde_yaml",
+ "tokio",
+ "url",
+ "utils-state",
+ "windows 0.53.0",
+ "winres",
+]
+
+[[package]]
 name = "copypasta"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -835,7 +867,7 @@ dependencies = [
 
 [[package]]
 name = "cs2"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "cs2-schema-cutl",
@@ -857,7 +889,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-cutl"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "raw_struct",
@@ -865,7 +897,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-definition"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "raw_struct",
@@ -874,8 +906,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "cs2-schema-generated"
+name = "cs2-schema-dumper"
 version = "0.5.16"
+dependencies = [
+ "anyhow",
+ "clap",
+ "cs2",
+ "cs2-schema-definition",
+ "env_logger",
+ "log",
+ "serde",
+ "serde_json",
+ "utils-state",
+]
+
+[[package]]
+name = "cs2-schema-generated"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "cs2-schema-cutl",
@@ -889,7 +936,7 @@ dependencies = [
 
 [[package]]
 name = "cs2-schema-provider"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "log",
 ]
@@ -2915,7 +2962,7 @@ dependencies = [
 
 [[package]]
 name = "radar-client"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2937,7 +2984,7 @@ dependencies = [
 
 [[package]]
 name = "radar-client-standalone"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "clap",
@@ -2955,7 +3002,7 @@ dependencies = [
 
 [[package]]
 name = "radar-server"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2974,7 +3021,7 @@ dependencies = [
 
 [[package]]
 name = "radar-server-standalone"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "clap",
@@ -2986,7 +3033,7 @@ dependencies = [
 
 [[package]]
 name = "radar-shared"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "serde",

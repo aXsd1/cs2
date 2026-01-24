@@ -87,8 +87,14 @@ use crate::{
         shared_mem::SharedMemoryWriter,
     },
     utils::TextWithShadowUi,
+
     winver::version_info,
+    network::ws_client,
+    network::radar_client::{self, RadarCommand, RadarSessionInfo},
+    enhancements::radar_generator::CS2RadarGenerator,
 };
+
+mod network;
 
 mod dialog;
 mod enhancements;
@@ -175,8 +181,8 @@ pub struct Application {
     pub settings_ui: RefCell<SettingsUI>,
     pub settings_screen_capture_changed: AtomicBool,
     pub settings_render_debug_window_changed: AtomicBool,
-
     pub username_state: Arc<Mutex<Option<String>>>,
+    pub radar_session_info: Arc<Mutex<RadarSessionInfo>>,
 }
 
 impl Application {
@@ -334,6 +340,22 @@ impl Application {
                     38.0,
                 ]);
                 ui.text_with_shadow(&text)
+            }
+        }
+
+        if settings.web_radar_enabled {
+            if let Ok(info) = self.radar_session_info.lock() {
+                if let Some(session_id) = &info.session_id {
+                     let text = format!("Radar session created: {}", session_id);
+                     // If watermark is on, render below it (approx Y=52), otherwise at top (Y=10)
+                     let y_pos = if settings.valthrun_watermark { 52.0 } else { 10.0 };
+                     
+                     ui.set_cursor_pos([
+                        ui.window_size()[0] - ui.calc_text_size(&text)[0] - 10.0,
+                        y_pos,
+                    ]);
+                    ui.text_with_shadow(&text);
+                }
             }
         }
 
@@ -549,6 +571,16 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
 
     let username_state = Arc::new(Mutex::new(None::<String>));
 
+    // --- Radar Publisher ---
+    let (radar_cmd_tx, radar_cmd_rx) = tokio::sync::mpsc::channel::<RadarCommand>(16);
+    let radar_session_info = Arc::new(Mutex::new(RadarSessionInfo::default()));
+    
+    let bg_radar_session = radar_session_info.clone();
+    tokio::spawn(radar_client::run_radar_publisher(
+        radar_cmd_rx,
+        bg_radar_session,
+    ));
+
     let app = Application {
         fonts: app_fonts,
         app_state,
@@ -582,55 +614,36 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         settings_screen_capture_changed: AtomicBool::new(true),
         settings_render_debug_window_changed: AtomicBool::new(true),
         username_state: username_state.clone(),
+        radar_session_info: radar_session_info.clone(),
     };
     let app = Rc::new(RefCell::new(app));
 
     // --- Remote Settings Fetcher (Değiştirilmeden korundu) ---
-    let settings_url = "https://yeageth.com/links/getyaml.php".to_string();
+    // Removed legacy settings fetcher
+    // let settings_url = "https://yeageth.com/links/getyaml.php".to_string();
     let (settings_tx, settings_rx) = mpsc::channel::<AppSettings>();
 
-    let bg_url = settings_url.clone();
+    // let bg_url = settings_url.clone(); deleted
+    // let bg_tx = settings_tx.clone(); handled below
+    // let bg_username_state = username_state.clone(); deleted
+
+    // --- WebSocket Client ---
+    let (ws_cmd_tx, ws_cmd_rx) = tokio::sync::mpsc::channel(32);
+    let auth_status = Arc::new(Mutex::new(None));
+
+    // Configure UI with WS context
+    {
+        let mapp = app.borrow();
+        let mut settings_ui = mapp.settings_ui.borrow_mut();
+        settings_ui.set_ws_context(ws_cmd_tx.clone(), auth_status.clone());
+    }
+
     let bg_tx = settings_tx.clone();
-    let bg_username_state = username_state.clone(); 
+    let bg_auth_status = auth_status.clone();
 
-    thread::spawn(move || {
-        let client = reqwest::blocking::Client::new();
-        loop {
-            let username = bg_username_state.lock().unwrap().clone();
+    tokio::spawn(ws_client::run_ws_client(ws_cmd_rx, bg_tx, bg_auth_status));
 
-            if let Some(user) = username {
-                let params = [("username", user)];
-                match client.post(&bg_url).form(&params).send() {
-                    Ok(resp) => {
-                        match resp.text() {
-                            Ok(body) => {
-                                match serde_yaml::from_str::<AppSettings>(&body) {
-                                    Ok(remote_settings) => {
-                                        if let Err(e) = bg_tx.send(remote_settings) {
-                                            log::error!("Failed to send settings to main thread: {}", e);
-                                            break;
-                                        } else {
-                                            log::info!("Remote settings fetched and sent for user.");
-                                        }
-                                    }
-                                    Err(e) => {
-                                        log::error!("Failed to parse YAML from remote settings: {:#}", e);
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                log::error!("Failed to read response body from settings URL: {}", e);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("Failed to fetch settings URL: {}", e);
-                    }
-                }
-            }
-            thread::sleep(StdDuration::from_secs(15));
-        }
-    });
+
 
     cs2.add_metrics_record(
         obfstr!("controller-status"),
@@ -700,6 +713,14 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
                     return true;
                 } else {
                     update_fail_count += 1;
+                }
+            } else {
+                // Generate and send radar state if enabled
+                if app.settings().web_radar_enabled {
+                    let generator = CS2RadarGenerator::new(&app.app_state);
+                    if let Ok(state) = generator.generate_state() {
+                        let _ = radar_cmd_tx.try_send(RadarCommand::UpdateState(state));
+                    }
                 }
             }
 

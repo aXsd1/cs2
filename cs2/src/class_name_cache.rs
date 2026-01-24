@@ -78,7 +78,7 @@ impl ClassNameCache {
 
         let class_name = PtrCStr::read_object(
             &*memory,
-            u64::read_object(&*memory, address + 0x30).map_err(|e| anyhow!(e))? + 0x08,
+            u64::read_object(&*memory, address + 0x08).map_err(|e| anyhow!(e))? + 0x00,
         )
         .map_err(|e| anyhow!(e))?
         .read_string(&*memory)?

@@ -1,7 +1,6 @@
 use anyhow::Context;
 use cs2::{
     CEntityIdentityEx,
-    CEntityIdentityEx,
     LocalCameraControllerTarget,
     StateCS2Memory,
     StateEntityList,
@@ -24,7 +23,6 @@ pub struct SharedMemoryWriter {
 }
 
 impl SharedMemoryWriter {
-    pub fn new() -> Self {
     pub fn new() -> Self {
         // Paylaşılan belleği oluştur veya varsa bağlan
         let shmem = match ShmemConf::new().size(4096).os_id("yeageth_weapon_data").create() {
@@ -51,9 +49,7 @@ impl SharedMemoryWriter {
         };
 
         Self {
-        Self {
             shmem: Mutex::new(shmem),
-        }
         }
     }
 }

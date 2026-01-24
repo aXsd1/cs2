@@ -306,7 +306,7 @@ pub struct AppSettings {
     #[serde(default)]
     pub web_radar_url: Option<String>,
 
-    #[serde(default = "bool_true")]
+    #[serde(default = "bool_false")]
     pub web_radar_enabled: bool,
 
     #[serde(default = "bool_false")]

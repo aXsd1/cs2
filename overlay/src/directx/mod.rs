@@ -848,7 +848,7 @@ impl RenderBackend for DirectXRenderBackend {
 
         if let Some(swap_chain) = &self.swap_chain {
             unsafe {
-                let present_result = swap_chain.Present(0, 0);
+                let present_result = swap_chain.Present(1, 0);
                 if present_result.is_err() {
                     let error_code = present_result.0;
                     if error_code == DXGI_ERROR_INVALID_CALL.0 {

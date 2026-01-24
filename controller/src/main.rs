@@ -180,8 +180,8 @@ pub struct Application {
     pub settings_ui: RefCell<SettingsUI>,
     pub settings_screen_capture_changed: AtomicBool,
     pub settings_render_debug_window_changed: AtomicBool,
-
     pub username_state: Arc<Mutex<Option<String>>>,
+    pub radar_session_info: Arc<Mutex<RadarSessionInfo>>,
 }
 
 impl Application {
@@ -339,6 +339,22 @@ impl Application {
                     38.0,
                 ]);
                 ui.text_with_shadow(&text)
+            }
+        }
+
+        if settings.web_radar_enabled {
+            if let Ok(info) = self.radar_session_info.lock() {
+                if let Some(session_id) = &info.session_id {
+                     let text = format!("Radar session created: {}", session_id);
+                     // If watermark is on, render below it (approx Y=52), otherwise at top (Y=10)
+                     let y_pos = if settings.valthrun_watermark { 52.0 } else { 10.0 };
+                     
+                     ui.set_cursor_pos([
+                        ui.window_size()[0] - ui.calc_text_size(&text)[0] - 10.0,
+                        y_pos,
+                    ]);
+                    ui.text_with_shadow(&text);
+                }
             }
         }
 
@@ -554,6 +570,16 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
 
     let username_state = Arc::new(Mutex::new(None::<String>));
 
+    // --- Radar Publisher ---
+    let (radar_cmd_tx, radar_cmd_rx) = tokio::sync::mpsc::channel::<RadarCommand>(16);
+    let radar_session_info = Arc::new(Mutex::new(RadarSessionInfo::default()));
+    
+    let bg_radar_session = radar_session_info.clone();
+    tokio::spawn(radar_client::run_radar_publisher(
+        radar_cmd_rx,
+        bg_radar_session,
+    ));
+
     let app = Application {
         fonts: app_fonts,
         app_state,
@@ -586,6 +612,7 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
         settings_screen_capture_changed: AtomicBool::new(true),
         settings_render_debug_window_changed: AtomicBool::new(true),
         username_state: username_state.clone(),
+        radar_session_info: radar_session_info.clone(),
     };
     let app = Rc::new(RefCell::new(app));
 
@@ -614,14 +641,7 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
 
     tokio::spawn(ws_client::run_ws_client(ws_cmd_rx, bg_tx, bg_auth_status));
 
-    // --- Radar Publisher ---
-    let (radar_cmd_tx, radar_cmd_rx) = tokio::sync::mpsc::channel::<RadarCommand>(16);
-    let radar_session_info = Arc::new(Mutex::new(RadarSessionInfo::default()));
-    
-    tokio::spawn(radar_client::run_radar_publisher(
-        radar_cmd_rx,
-        radar_session_info.clone(),
-    ));
+
 
     cs2.add_metrics_record(
         obfstr!("controller-status"),

@@ -77,19 +77,23 @@ impl Enhancement for SharedMemoryWriter {
         let weapon_id_to_write: u32 = if let Some(target_entity_id) = view_target.target_entity_id {
             if let Some(player_pawn) = entities.identity_from_index(target_entity_id) {
                  if let Ok(pawn_ptr) = player_pawn.entity_ptr::<dyn C_CSPlayerPawn>() {
-                     if let Ok(pawn_ref) = pawn_ptr.value_reference(memory.view_arc()) {
+                     if let Some(pawn_ref) = pawn_ptr.value_reference(memory.view_arc()) {
                          // Silahı al
                          if let Ok(weapon_handle) = pawn_ref.m_pClippingWeapon() {
                              if let Some(weapon_ref) = weapon_handle.value_reference(memory.view_arc()) {
                                  // Weapon ID'yi oku
-                                 let id_result = weapon_ref
-                                     .cast::<dyn C_EconEntity>()
-                                     .m_AttributeManager()
-                                     .and_then(|m| m.m_Item())
-                                     .and_then(|i| i.m_iItemDefinitionIndex());
-                                 
-                                 match id_result {
-                                     Ok(id) => id as u32,
+                                 match weapon_ref.cast::<dyn C_EconEntity>().m_AttributeManager() {
+                                     Ok(manager) => {
+                                         match manager.m_Item() {
+                                             Ok(item) => {
+                                                 match item.m_iItemDefinitionIndex() {
+                                                     Ok(id) => id as u32,
+                                                     Err(_) => 0,
+                                                 }
+                                             }
+                                             Err(_) => 0,
+                                         }
+                                     }
                                      Err(_) => 0,
                                  }
                              } else { 0 }

@@ -289,14 +289,52 @@ impl Enhancement for DataCollector {
                 continue;
             }
 
-            // Get 2D bounding box (like ESP does)
+            // Get 2D bounding box dynamically from bone positions for accurate fit
             let pawn_model = ctx.states.resolve::<StatePawnModelInfo>(entity_identity.handle()?)?;
             let entry_model = ctx.states.resolve::<CS2Model>(pawn_model.model_address)?;
 
-            let player_2d_box = view.calculate_box_2d(
-                &(entry_model.vhull_min + pawn_info.position),
-                &(entry_model.vhull_max + pawn_info.position),
-            );
+            // Calculate bounding box from all bone positions in screen space
+            let mut screen_positions = Vec::new();
+            for bone_state in &pawn_model.bone_states {
+                if let Some(screen_pos) = view.world_to_screen(&bone_state.position, true) {
+                    screen_positions.push(screen_pos);
+                }
+            }
+
+            // If we couldn't project any bones, skip this player
+            if screen_positions.is_empty() {
+                continue;
+            }
+
+            // Find min/max from all projected bone positions
+            let mut min_x = f32::MAX;
+            let mut min_y = f32::MAX;
+            let mut max_x = f32::MIN;
+            let mut max_y = f32::MIN;
+
+            for pos in &screen_positions {
+                min_x = min_x.min(pos.x);
+                min_y = min_y.min(pos.y);
+                max_x = max_x.max(pos.x);
+                max_y = max_y.max(pos.y);
+            }
+
+            // Apply outward padding to ensure full character coverage (especially for side views)
+            // Bones in 3D space may not fully represent the visible character silhouette
+            let body_width = max_x - min_x;
+            let body_height = max_y - min_y;
+            let expand_x = body_width * 0.15;  // Expand width by 15%
+            let expand_y = body_height * 0.08; // Expand height by 8%
+            
+            min_x -= expand_x;
+            max_x += expand_x;
+            min_y -= expand_y;
+            max_y += expand_y;
+
+            let player_2d_box = Some((
+                nalgebra::Vector2::new(min_x, min_y),
+                nalgebra::Vector2::new(max_x, max_y),
+            ));
 
             if let Some((vmin, vmax)) = player_2d_box {
                 // Check if the enemy box intersects with the capture area
@@ -312,26 +350,44 @@ impl Enhancement for DataCollector {
                 let local_max_x = ((vmax.x - capture_left).max(0.0) as i32).min(CAPTURE_SIZE);
                 let local_max_y = ((vmax.y - capture_top).max(0.0) as i32).min(CAPTURE_SIZE);
 
-                // Get head bounding box (like aimbot does, but with box instead of point)
-                // Head box size is dynamic based on body height (approximately 15% of body height)
-                let body_height = local_max_y - local_min_y;
-                let head_half_size = ((body_height as f32 * 0.15) as i32).max(4).min(30);
+                // Get head bounding box using same method as ESP head dot
+                // This ensures consistent head coverage (head_dot_base_radius=2.7, z_offset=1.0)
+                const HEAD_DOT_Z_OFFSET: f32 = 1.0;
+                const HEAD_DOT_BASE_RADIUS: f32 = 2.65;
+                const HEAD_DOT_Z_DISTANCE: f32 = 2.0;
+                const MAX_HEAD_SIZE: f32 = 250.0;
                 
                 let mut head_min_x = 0i32;
                 let mut head_min_y = 0i32;
                 let mut head_max_x = 0i32;
                 let mut head_max_y = 0i32;
+                
                 if let Some(head_bone_index) = entry_model.bones.iter().position(|bone| bone.name == "head_0") {
                     if let Some(head_state) = pawn_model.bone_states.get(head_bone_index) {
-                        if let Some(head_screen) = view.world_to_screen(&head_state.position, true) {
-                            // Convert head center to local coords and create bounding box
-                            let head_center_x = ((head_screen.x - capture_left).max(0.0) as i32).min(CAPTURE_SIZE);
-                            let head_center_y = ((head_screen.y - capture_top).max(0.0) as i32).min(CAPTURE_SIZE);
+                        // Calculate radius using same method as ESP head dot
+                        if let (Some(head_position), Some(head_far)) = (
+                            view.world_to_screen(
+                                &(head_state.position + nalgebra::Vector3::new(0.0, 0.0, HEAD_DOT_Z_OFFSET)),
+                                true,
+                            ),
+                            view.world_to_screen(
+                                &(head_state.position + nalgebra::Vector3::new(0.0, 0.0, HEAD_DOT_Z_OFFSET + HEAD_DOT_Z_DISTANCE)),
+                                true,
+                            ),
+                        ) {
+                            let radius = f32::min(f32::abs(head_position.y - head_far.y), MAX_HEAD_SIZE) * HEAD_DOT_BASE_RADIUS;
                             
-                            head_min_x = (head_center_x - head_half_size).max(0).min(CAPTURE_SIZE);
-                            head_min_y = (head_center_y - head_half_size).max(0).min(CAPTURE_SIZE);
-                            head_max_x = (head_center_x + head_half_size).max(0).min(CAPTURE_SIZE);
-                            head_max_y = (head_center_y + head_half_size).max(0).min(CAPTURE_SIZE);
+                            // Create bounding box from radius
+                            let h_min_x = head_position.x - radius;
+                            let h_min_y = head_position.y - radius;
+                            let h_max_x = head_position.x + radius;
+                            let h_max_y = head_position.y + radius;
+                            
+                            // Convert to local coordinates within capture area
+                            head_min_x = ((h_min_x - capture_left).max(0.0) as i32).min(CAPTURE_SIZE);
+                            head_min_y = ((h_min_y - capture_top).max(0.0) as i32).min(CAPTURE_SIZE);
+                            head_max_x = ((h_max_x - capture_left).max(0.0) as i32).min(CAPTURE_SIZE);
+                            head_max_y = ((h_max_y - capture_top).max(0.0) as i32).min(CAPTURE_SIZE);
                         }
                     }
                 }

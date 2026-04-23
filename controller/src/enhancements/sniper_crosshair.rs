@@ -7,6 +7,8 @@ use cs2::{
     WeaponId,
 };
 use cs2_schema_generated::cs2::client::{
+    CPlayer_WeaponServices,
+    C_BasePlayerPawn,
     C_CSPlayerPawn,
     C_EconEntity,
 };
@@ -63,9 +65,16 @@ impl Enhancement for SniperCrosshair {
             .value_reference(memory.view_arc())
             .context("player pawn nullptr")?;
 
-        let Some(weapon) = player_pawn
-            .m_pClippingWeapon()?
+        let weapon_services = player_pawn
+            .m_pWeaponServices()?
             .value_reference(memory.view_arc())
+            .context("m_pWeaponServices nullptr")?;
+        let active_weapon_handle = weapon_services
+            .cast::<dyn CPlayer_WeaponServices>()
+            .m_hActiveWeapon()?;
+        let Some(weapon) = entities
+            .entity_from_handle(&active_weapon_handle)
+            .and_then(|weapon| weapon.value_reference(memory.view_arc()))
         else {
             return Ok(());
         };

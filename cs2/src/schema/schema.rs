@@ -222,7 +222,7 @@ pub struct CSchemaClassField {
     pub metadata: Ptr64<[Copy<dyn CSchemaMetadataEntry>]>,
 }
 
-#[raw_struct(size = 0x60)]
+#[raw_struct(size = 0x70)]
 pub struct CSchemaClassBinding {
     #[field(offset = 0x00)]
     pub parent: Ptr64<dyn CSchemaClassBinding>,
@@ -231,36 +231,39 @@ pub struct CSchemaClassBinding {
     pub name: PtrCStr,
 
     #[field(offset = 0x10)]
-    pub module_name: PtrCStr,
+    pub binary_name: PtrCStr,
 
     #[field(offset = 0x18)]
+    pub module_name: PtrCStr,
+
+    #[field(offset = 0x20)]
     pub size: u32, // Size of own struct
 
-    #[field(offset = 0x1C)]
+    #[field(offset = 0x24)]
     pub field_size: u16,
 
-    #[field(offset = 0x1E)]
+    #[field(offset = 0x26)]
     pub metadata_size: u16,
 
-    #[field(offset = 0x28)]
+    #[field(offset = 0x30)]
     pub fields: Ptr64<[Copy<dyn CSchemaClassField>]>,
 
-    #[field(offset = 0x30)]
+    #[field(offset = 0x40)]
     pub base_class: Ptr64<dyn CSchemaClassInheritance>,
 
-    #[field(offset = 0x40)]
+    #[field(offset = 0x48)]
     pub metadata: Ptr64<[Copy<dyn CSchemaMetadataEntry>]>,
 
     /// pointer to the type scope where the class has been registered into
-    #[field(offset = 0x48)]
+    #[field(offset = 0x50)]
     pub type_scope: Ptr64<dyn CSchemaSystemTypeScope>,
 
     /// pointer to the declared class CSchemaType
-    #[field(offset = 0x50)]
+    #[field(offset = 0x58)]
     pub schema_type: Ptr64<dyn CSchemaType>,
 
-    #[field(offset = 0x58)]
-    pub flags: u64,
+    #[field(offset = 0x60)]
+    pub flags: u32,
 }
 
 #[raw_struct(size = 0x10)]

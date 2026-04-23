@@ -165,9 +165,16 @@ impl State for StatePawnInfo {
         let position =
             nalgebra::Vector3::<f32>::from_column_slice(&game_screen_node.m_vecAbsOrigin()?);
 
-        let weapon_ref = player_pawn
-            .m_pClippingWeapon()?
-            .value_reference(memory.view_arc());
+        let active_weapon_handle = weapon_services
+            .cast::<dyn CPlayer_WeaponServices>()
+            .m_hActiveWeapon()?;
+        let weapon_ref = if active_weapon_handle.is_valid() {
+            entities
+                .entity_from_handle(&active_weapon_handle)
+                .and_then(|weapon| weapon.value_reference(memory.view_arc()))
+        } else {
+            None
+        };
         let weapon_type = if let Some(weapon) = &weapon_ref {
             weapon
                 .cast::<dyn C_EconEntity>()

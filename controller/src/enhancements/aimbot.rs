@@ -114,8 +114,10 @@ impl HumanAimbot {
         let smooth_factor = if speed > 85.0 { 85.0 } else { speed };
         let divisor = 100.0 - smooth_factor;
         
-        let raw_move_x = target_dx / divisor;
-        let raw_move_y = target_dy / divisor;
+        let final_divisor = divisor / 5.0; 
+        
+        let raw_move_x = target_dx / final_divisor;
+        let raw_move_y = target_dy / final_divisor;
 
         let move_x = if raw_move_x.abs() < 1.0 && raw_move_x.abs() > 0.05 {
             if raw_move_x > 0.0 { 1 } else { -1 }

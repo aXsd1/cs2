@@ -874,21 +874,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cs2-schema-dumper"
-version = "0.5.18"
-dependencies = [
- "anyhow",
- "clap",
- "cs2",
- "cs2-schema-definition",
- "env_logger",
- "log",
- "serde",
- "serde_json",
- "utils-state",
-]
-
-[[package]]
 name = "cs2-schema-generated"
 version = "0.5.18"
 dependencies = [

@@ -6,6 +6,9 @@ use cs2::{
     StateEntityList,
 };
 use cs2_schema_generated::cs2::client::{
+    CPlayer_WeaponServices,
+    C_BasePlayerPawn,
+    C_BasePlayerWeapon,
     C_CSPlayerPawn,
     C_EconEntity,
 };
@@ -61,9 +64,16 @@ impl Enhancement for SharedMemoryWriter {
                     .value_reference(memory.view_arc())
                     .context("player pawn nullptr")?;
 
-                let weapon = player_pawn
-                    .m_pClippingWeapon()?
+                let weapon_services = player_pawn
+                    .m_pWeaponServices()?
                     .value_reference(memory.view_arc())
+                    .context("m_pWeaponServices nullptr")?;
+                let active_weapon_handle = weapon_services
+                    .cast::<dyn CPlayer_WeaponServices>()
+                    .m_hActiveWeapon()?;
+                let weapon = entities
+                    .entity_from_handle::<dyn C_BasePlayerWeapon>(&active_weapon_handle)
+                    .and_then(|w| w.value_reference(memory.view_arc()))
                     .context("weapon nullptr")?;
 
                 let weapon_id = weapon

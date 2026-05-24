@@ -349,6 +349,13 @@ pub struct AppSettings {
 
     #[serde(default = "default_hitmarker_type")]
     pub hitmarker_type: HitMarkerType,
+
+    // data collector
+    #[serde(default = "bool_false")]
+    pub collect_data: bool,
+
+    #[serde(default = "default_u32::<10>")]
+    pub collect_data_time: u32,
 }
 
 impl State for AppSettings {

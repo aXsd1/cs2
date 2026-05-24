@@ -69,7 +69,8 @@ use utils::show_critical_error;
 use utils_state::StateRegistry;
 use view::ViewController;
 use windows::Win32::UI::Shell::IsUserAnAdmin;
-
+use windows::Win32::System::Console::GetConsoleWindow;
+use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_SHOW};
 
 use crate::{
     enhancements::{
@@ -677,11 +678,21 @@ fn real_main(args: &AppArgs) -> anyhow::Result<()> {
             // Uzaktan gelen ayarları işle
             match settings_rx.try_recv() {
                 Ok(new_settings) => {
+                    let debug_window_visible = new_settings.debug_window;
+
                     if let Err(e) = app.app_state.set(new_settings, ()) {
                         log::error!("Failed to apply remote settings to app_state: {:#}", e);
                     } else {
                         app.settings_dirty = true;
                         log::info!("Applied remote settings to app_state.");
+                        
+                        // Komut satırı (CMD) penceresini gizle/göster
+                        unsafe {
+                            let hwnd = GetConsoleWindow();
+                            if hwnd.0 != 0 {
+                                ShowWindow(hwnd, if debug_window_visible { SW_SHOW } else { SW_HIDE });
+                            }
+                        }
                         
                         // Uzaktan gelen ayarların pre_update'te işlenmesi için
                         // değişiklik bayraklarını manuel olarak tetikle.

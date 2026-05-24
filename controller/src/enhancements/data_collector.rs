@@ -331,14 +331,16 @@ impl Enhancement for DataCollector {
                     }
                     let filename = format!("{}_{}.bmp", coord_parts.join("_"), timestamp);
 
-                    let _ = std::fs::create_dir_all("Data");
-                    let path = std::path::Path::new("Data").join(&filename);
-                    if let Err(e) = save_bmp(&path, 416, 416, &pixels) {
-                        log::error!("Failed to save data collection screenshot: {:?}", e);
-                    } else {
-                        log::info!("Saved data collection screenshot: {}", filename);
-                        self.last_capture = Some(Instant::now());
-                    }
+                    self.last_capture = Some(Instant::now());
+                    std::thread::spawn(move || {
+                        let _ = std::fs::create_dir_all("Data");
+                        let path = std::path::Path::new("Data").join(&filename);
+                        if let Err(e) = save_bmp(&path, 416, 416, &pixels) {
+                            log::error!("Failed to save data collection screenshot: {:?}", e);
+                        } else {
+                            log::info!("Saved data collection screenshot: {}", filename);
+                        }
+                    });
                 }
             }
         }

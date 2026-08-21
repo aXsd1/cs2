@@ -18,6 +18,7 @@ members = [
     "cs2",
     "overlay",
     "controller",
+    "launcher",
 ]
 
 [workspace.package]

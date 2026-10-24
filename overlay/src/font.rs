@@ -85,7 +85,11 @@ impl FontAtlasBuilder {
             .map(|e| {
                 let name = e.name;
                 if name[0] == 0x00 {
-                    String::from_utf16be_lossy(name).to_string()
+                    let units = name
+                        .chunks_exact(2)
+                        .map(|c| u16::from_be_bytes([c[0], c[1]]))
+                        .collect::<Vec<_>>();
+                    String::from_utf16_lossy(&units)
                 } else {
                     String::from_utf8_lossy(name).to_string()
                 }
